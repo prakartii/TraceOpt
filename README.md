@@ -55,7 +55,7 @@ Source (C) → LLVM IR → Program Analysis → Candidate Optimizations
 | Candidate generation (`opt` loop-unroll factors) | Planned |
 | Proving-cost estimation | Planned |
 | Optimization selection | Planned |
-| Target compilation into a RISC Zero guest | Planned; feasibility under test in Phase 0 |
+| Target compilation into a RISC Zero guest | C via GCC works (Phase 0); Clang/IR route not yet tested |
 | Evaluation report (JSON) | Planned |
 
 Linking a Clang-compiled C kernel into a RISC Zero guest is an assumption that
@@ -88,13 +88,23 @@ TraceOpt keeps these quantities separate and never reports one as another:
 
 ## Current status
 
-**Implemented:** nothing yet.
+**Implemented (Phase 0 infrastructure, tested):**
+- A RISC Zero host that runs a guest in the executor or the prover and prints
+  JSON with segments and total/user/paging/reserved cycles.
+- A guest that calls a C benchmark kernel through FFI and reports the cycles
+  spent inside the kernel. The C file is compiled with RISC Zero's GCC
+  toolchain.
+- Two benchmark kernels (`sum_squares`, `xorshift`) with Python references
+  and a differential smoke test.
+
+None of the TraceOpt pipeline stages (analysis, cost model, decision) exist
+yet. Measured results so far are in [docs/feasibility.md](docs/feasibility.md).
 
 **In progress (Phase 0):**
-- Installing the toolchain in WSL Ubuntu (LLVM/Clang, Rust, RISC Zero).
-- Building and running a minimal RISC Zero guest, and recording its cycle count.
-- Testing whether a C kernel compiled with Clang can be linked into a guest.
-- Measuring memory use when proving under the current WSL limit.
+- Compiling kernels through Clang → LLVM IR → `opt` → RISC-V object and
+  linking them into the guest (LLVM is not installed yet).
+- Proving with capped segment sizes: a single 2^20-cycle segment exceeded the
+  ~7.6 GB of memory available to WSL.
 
 **Planned:** everything in the pipeline table above. See the
 [development roadmap](docs/development-roadmap.md).
@@ -109,11 +119,29 @@ TraceOpt keeps these quantities separate and never reports one as another:
 
 ## Installation and usage
 
-*Pending.* The toolchain is being set up in Phase 0. Verified commands will be
-added here once they work end to end.
+RISC Zero's installer supports x86-64 Linux and arm64 macOS, so on Windows
+the project is developed inside WSL 2 (Ubuntu). The commands below were
+verified on Ubuntu 26.04 in WSL with RISC Zero 3.0.6.
 
-Known requirement: RISC Zero's installer supports x86-64 Linux and arm64 macOS,
-so on Windows the project is developed inside WSL 2 (Ubuntu).
+```bash
+# Toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+curl -L https://risczero.com/install | bash
+~/.risc0/bin/rzup install
+
+# Build (first build takes ~15 minutes)
+scripts/build_backend.sh
+
+# Run a guest in the executor: host <execute|prove> <probe|kernel> [n]
+~/.cache/traceopt-target/release/host execute kernel 1000
+```
+
+Proving (`prove`) works for small inputs. For larger inputs, set
+`TRACEOPT_SEGMENT_PO2` (for example `18`) to cap memory. See
+[docs/feasibility.md](docs/feasibility.md) §5.
+
+The TraceOpt optimizer itself has no usage instructions yet because it does
+not exist yet.
 
 ## Benchmarking and evaluation (planned)
 
@@ -132,8 +160,13 @@ collected yet.
 
 ## Testing
 
-No tests exist yet. Unit tests for feature extraction and decision logic, plus
-differential tests for transformed kernels, are planned for Phases 1–3.
+```bash
+scripts/smoke_test.sh   # inside WSL, after building
+```
+
+This runs both guests in the RISC Zero executor and compares their outputs
+with the Python references in `tests/reference.py`. Unit tests for feature
+extraction and decision logic are planned for Phases 1–3.
 
 ## Repository structure
 
@@ -142,9 +175,21 @@ TraceOpt/
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
-└── docs/
-    ├── architecture.md
-    └── development-roadmap.md
+├── backend/risc0/          RISC Zero workspace
+│   ├── host/               runs guests, prints JSON measurements
+│   └── methods/
+│       ├── guest/          Rust-only probe guest
+│       └── kernel/         Rust guest that links a C kernel via FFI
+├── benchmarks/             C kernels exporting traceopt_kernel(uint32_t)
+├── docs/
+│   ├── architecture.md
+│   ├── development-roadmap.md
+│   └── feasibility.md      Phase 0 measurements and blockers
+├── scripts/
+│   ├── build_backend.sh
+│   └── smoke_test.sh
+└── tests/
+    └── reference.py        reference implementations of the kernels
 ```
 
 ## Limitations and future work
