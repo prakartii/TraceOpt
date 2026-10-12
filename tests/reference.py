@@ -32,7 +32,28 @@ def nested_fnv(n: int) -> int:
     return h
 
 
-KERNELS = {"sum_squares": sum_squares, "xorshift": xorshift, "nested_fnv": nested_fnv}
+def branchy(n: int) -> int:
+    x = 2463534242
+    acc = 0
+    for i in range(n):
+        x ^= (x << 13) & MASK
+        x ^= x >> 17
+        x ^= (x << 5) & MASK
+        if x & 1:
+            acc = (acc + (x >> 3)) & MASK
+        elif x & 2:
+            acc ^= (x * 3) & MASK
+        else:
+            acc = (acc - i) & MASK
+    return acc
+
+
+KERNELS = {
+    "sum_squares": sum_squares,
+    "xorshift": xorshift,
+    "nested_fnv": nested_fnv,
+    "branchy": branchy,
+}
 
 
 def main() -> int:
