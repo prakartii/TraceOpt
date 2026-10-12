@@ -24,7 +24,15 @@ def xorshift(n: int) -> int:
     return x
 
 
-KERNELS = {"sum_squares": sum_squares, "xorshift": xorshift}
+def nested_fnv(n: int) -> int:
+    h = 2166136261
+    for i in range(n):
+        for j in range(16):
+            h = ((h ^ ((i + j) & MASK)) * 16777619) & MASK
+    return h
+
+
+KERNELS = {"sum_squares": sum_squares, "xorshift": xorshift, "nested_fnv": nested_fnv}
 
 
 def main() -> int:
