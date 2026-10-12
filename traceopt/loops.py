@@ -1,10 +1,11 @@
-"""Control-flow analysis: predecessors, dominators, and natural loops."""
+"""Control-flow analysis: predecessors, dominators, natural loops, trip counts."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
-from traceopt.ir import Function
+from traceopt.ir import Function, Instruction
 
 
 def predecessors(fn: Function) -> dict[str, list[str]]:
@@ -99,3 +100,128 @@ def find_loops(fn: Function) -> list[Loop]:
             inner.parent = min(candidates, key=lambda o: len(o.body))
             inner.parent.children.append(inner)
     return sorted(loops, key=lambda lp: (lp.depth, lp.header))
+
+
+# --- Trip counts -------------------------------------------------------------
+
+_BR_COND_RE = re.compile(r"^br\s+i1\s+(%\S+),\s*label\s+%(\S+),\s*label\s+%([^,\s]+)")
+_ICMP_RE = re.compile(r"^icmp\s+(\w+)\s+i\d+\s+([^,]+),\s*(\S+)")
+_PHI_INCOMING_RE = re.compile(r"\[\s*([^,\]]+),\s*%([^\s\]]+)\s*\]")
+_ADD_RE = re.compile(r"^add\s+(?:(?:nuw|nsw)\s+)*i\d+\s+([^,]+),\s*(\S+)")
+
+_NEGATE = {
+    "eq": "ne", "ne": "eq",
+    "ult": "uge", "uge": "ult", "ule": "ugt", "ugt": "ule",
+    "slt": "sge", "sge": "slt", "sle": "sgt", "sgt": "sle",
+}
+_SWAP = {
+    "eq": "eq", "ne": "ne",
+    "ult": "ugt", "ugt": "ult", "ule": "uge", "uge": "ule",
+    "slt": "sgt", "sgt": "slt", "sle": "sge", "sge": "sle",
+}
+
+
+def _body(inst: Instruction) -> str:
+    """Instruction text without the `%x =` assignment."""
+    return inst.text.split("=", 1)[1].strip() if inst.result else inst.text
+
+
+def _definitions(fn: Function) -> dict[str, Instruction]:
+    return {i.result: i for b in fn.blocks for i in b.instructions if i.result}
+
+
+def _resolve(token: str, fn: Function, args: dict[str, int]) -> int | None:
+    token = token.strip()
+    if re.fullmatch(r"-?\d+", token):
+        return int(token)
+    if token.startswith("%") and token[1:] in fn.params:
+        return args.get(token[1:])
+    return None
+
+
+def trip_count(fn: Function, loop: Loop, args: dict[str, int] | None = None) -> int | None:
+    """Number of times the loop body runs per entry, or None if unknown.
+
+    Supports rotated loops (as produced by Clang -O1): a single latch ending
+    in a conditional branch to the header or out of the loop, controlled by
+    `icmp` on an induction variable `phi [init, outside], [iv + step, latch]`
+    with constant positive step. The initial value and bound may be
+    constants or function parameters given in `args`. Loop guards outside
+    the loop are not modeled: the result assumes the loop is entered.
+    """
+    args = args or {}
+    if len(loop.latches) != 1:
+        return None
+    latch = fn.block(loop.latches[0])
+    m = _BR_COND_RE.match(latch.terminator.text)
+    if not m:
+        return None
+    cond, on_true, on_false = m.group(1)[1:], m.group(2), m.group(3)
+    if loop.header == on_true and on_false not in loop.body:
+        exit_on_true = False
+    elif loop.header == on_false and on_true not in loop.body:
+        exit_on_true = True
+    else:
+        return None
+
+    defs = _definitions(fn)
+    cmp_inst = defs.get(cond)
+    if cmp_inst is None or cmp_inst.opcode != "icmp":
+        return None
+    m = _ICMP_RE.match(_body(cmp_inst))
+    if not m:
+        return None
+    pred, lhs, rhs = m.group(1), m.group(2).strip(), m.group(3).strip()
+
+    for phi in fn.block(loop.header).instructions:
+        if phi.opcode != "phi":
+            break
+        incoming = {blk: val.strip() for val, blk in _PHI_INCOMING_RE.findall(phi.text)}
+        if len(incoming) != 2 or latch.label not in incoming:
+            continue
+        nxt = incoming[latch.label]
+        init_tok = next(v for b, v in incoming.items() if b != latch.label)
+        add = defs.get(nxt[1:]) if nxt.startswith("%") else None
+        if add is None or add.opcode != "add":
+            continue
+        am = _ADD_RE.match(_body(add))
+        if not am:
+            continue
+        ops = [am.group(1).strip(), am.group(2).strip()]
+        iv = f"%{phi.result}"
+        if iv not in ops:
+            continue
+        step = _resolve(ops[1] if ops[0] == iv else ops[0], fn, {})
+        start = _resolve(init_tok, fn, args)
+        if step is None or step <= 0 or start is None:
+            continue
+
+        tested = {iv: start - step, nxt: start}  # value of `a` in v_k = a + k*step
+        if lhs in tested:
+            a, bound_tok, p = tested[lhs], rhs, pred
+        elif rhs in tested:
+            a, bound_tok, p = tested[rhs], lhs, _SWAP[pred]
+        else:
+            continue
+        bound = _resolve(bound_tok, fn, args)
+        if bound is None or pred not in _NEGATE:
+            return None
+        if p.startswith("u") and (start < 0 or bound < 0):
+            return None
+        exit_pred = p if exit_on_true else _NEGATE[p]
+        return _solve(exit_pred, a, step, bound)
+    return None
+
+
+def _solve(exit_pred: str, a: int, step: int, bound: int) -> int | None:
+    """Smallest k >= 1 with `a + k*step <exit_pred> bound`, for step > 0."""
+    diff = bound - a
+    if exit_pred == "eq":
+        if diff % step == 0 and diff // step >= 1:
+            return diff // step
+        return None
+    if exit_pred in ("uge", "sge"):
+        return max(1, -(-diff // step))
+    if exit_pred in ("ugt", "sgt"):
+        return max(1, diff // step + 1)
+    return None
