@@ -105,7 +105,27 @@ xorshift, n = 100000, execute mode:
 
 The segment limit must be held constant when comparing variants.
 
-### 4.5 Proving (partially verified)
+### 4.5 Paging depends on memory footprint, not access count (verified)
+
+`benchmarks/strided_rw.c` (64 KiB array, GCC route), execute mode, one
+segment:
+
+| n | kernel cycles | user cycles | paging cycles | total cycles |
+|---|---|---|---|---|
+| 0 | 65636 | 69641 | 61154 | 262144 |
+| 1000 | 645641 | 649646 | 61154 | 1048576 |
+
+- Paging cycles are the same for 0 and 1000 passes over the array: within
+  one segment, each touched page is paged in once (and paged out once if
+  dirty). They exceed xorshift's 18635 by ~42.5K cycles because of the
+  array's footprint.
+- `kernel_cycles` (from `env::cycle_count()`) excludes paging: user cycles
+  minus kernel cycles is 4005 for every kernel measured. Paging therefore has
+  to be taken from the session statistics.
+- Implication for the cost model: M(F) should be a footprint feature (distinct
+  pages touched per segment), not a per-access count.
+
+### 4.6 Proving (partially verified)
 
 | Run | Result |
 |---|---|
