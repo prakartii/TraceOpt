@@ -33,6 +33,21 @@ from reference import KERNELS  # noqa: E402
 
 TARGET = Path(os.environ.get("CARGO_TARGET_DIR", Path.home() / ".cache/traceopt-target"))
 HOST = TARGET / "release" / "host"
+KERNEL_ELF = TARGET / "riscv-guest/methods/kernel/riscv32im-risc0-zkvm-elf/release/kernel"
+
+
+def kernel_code_bytes() -> int | None:
+    """Size of the `traceopt_kernel` symbol in the guest ELF, from `nm -S`."""
+    nm = next(Path.home().glob(".risc0/toolchains/*cpp*/*/bin/riscv32-unknown-elf-nm"), None)
+    if nm is None or not KERNEL_ELF.exists():
+        return None
+    out = subprocess.run([str(nm), "-S", str(KERNEL_ELF)],
+                         capture_output=True, text=True, check=True).stdout
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 4 and parts[3] == "traceopt_kernel":
+            return int(parts[1], 16)
+    return None
 
 
 def tool_version(*cmd: str) -> str:
@@ -82,6 +97,9 @@ def main() -> int:
         src = ROOT / "benchmarks" / f"{name}.c"
         print(f"building {name}", file=sys.stderr)
         build(src)
+        code_bytes = kernel_code_bytes()
+        if code_bytes is None:
+            errors.append(f"{name}: could not read traceopt_kernel size from {KERNEL_ELF}")
         for n in args.n:
             runs = [execute(n) for _ in range(args.repeat)]
             first = runs[0]
@@ -98,6 +116,7 @@ def main() -> int:
                 "n": n,
                 "output_matches_reference": ok,
                 "repeat_identical": stable,
+                "kernel_code_bytes": code_bytes,
                 "kernel_cycles": first["result"]["kernel_cycles"],
                 **first["stats"],
                 "segment_limit_po2": first["segment_limit_po2"],
