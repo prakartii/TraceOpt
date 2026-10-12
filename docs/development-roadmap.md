@@ -10,10 +10,10 @@ Status values: Not started / In progress / Done / Blocked.
 
 | Phase | Weeks | Status |
 |---|---|---|
-| 0. Repository audit and feasibility | 1 | In progress |
-| 1. IR analysis and baseline | 1–3 | Not started |
-| 2. Initial proving-cost model | 3–4 | Not started |
-| 3. First cost-aware optimization | 4–5 | Not started |
+| 0. Repository audit and feasibility | 1 | In progress (Clang route blocked on LLVM install) |
+| 1. IR analysis and baseline | 1–3 | In progress (analyzer and GCC baseline done; real-IR validation pending) |
+| 2. Initial proving-cost model | 3–4 | In progress (segment model and fitting code done; calibration data pending) |
+| 3. First cost-aware optimization | 4–5 | In progress (decision logic done) |
 | 4. Backend integration and reporting | 5–6 | Not started |
 | 5. Evaluation and testing | 6–7 | Not started |
 | 6. Finalization and demonstration | 8 | Not started |
