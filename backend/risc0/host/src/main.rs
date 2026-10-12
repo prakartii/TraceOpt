@@ -6,6 +6,10 @@
 //! - `probe`:  Rust-only guest; journal is the u32 result.
 //! - `kernel`: Rust guest calling a C kernel via FFI; journal is
 //!             (u32 result, u64 cycles spent inside the kernel).
+//!
+//! `TRACEOPT_SEGMENT_PO2=<k>` caps segments at 2^k cycles. Smaller segments
+//! lower prover memory but add per-segment paging, so keep it fixed when
+//! comparing variants.
 
 use std::time::Instant;
 
@@ -51,9 +55,24 @@ fn main() -> Result<()> {
         other => bail!("unknown guest {other:?}; expected probe or kernel"),
     };
 
-    let env = ExecutorEnv::builder().write(&n)?.build()?;
+    let segment_po2: Option<u32> = match std::env::var("TRACEOPT_SEGMENT_PO2") {
+        Ok(s) => Some(s.parse().context("TRACEOPT_SEGMENT_PO2 must be a u32")?),
+        Err(_) => None,
+    };
 
-    let mut report = json!({ "mode": mode, "guest": guest, "n": n });
+    let mut builder = ExecutorEnv::builder();
+    builder.write(&n)?;
+    if let Some(po2) = segment_po2 {
+        builder.segment_limit_po2(po2);
+    }
+    let env = builder.build()?;
+
+    let mut report = json!({
+        "mode": mode,
+        "guest": guest,
+        "n": n,
+        "segment_limit_po2": segment_po2,
+    });
     match mode {
         "execute" => {
             let start = Instant::now();
