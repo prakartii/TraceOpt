@@ -54,11 +54,21 @@ toolchain (`rzup install cpp`), or emitting IR from Rust guests and relinking.
 
 ## 3. Modules
 
-### IR Analyzer and Feature Extractor — Planned
+### IR Analyzer and Feature Extractor — In progress
 Input: a `.ll` file and a function name. Output: a JSON feature vector. Features
-are defined in Section 4. The implementation choice (parsing textual IR from
-Python vs. a small C++ tool against the LLVM API) will be made in Phase 1 after
-checking which LLVM version is installed and what its analysis printers expose.
+are defined in Section 4. Implemented in Python over textual IR (decision D3
+in `design-decisions.md`):
+
+| Part | File | Status |
+|---|---|---|
+| IR parser | `traceopt/ir.py` | Implemented (unit-tested on fixtures) |
+| Dominators, loops, trip counts | `traceopt/loops.py` | Implemented (cross-checked against simulation) |
+| Instruction classes, static counts | `traceopt/features.py` | Implemented |
+| Block frequencies, dynamic counts | `traceopt/frequency.py` | Experimental |
+| JSON CLI | — | Planned (issue #10) |
+
+All tests so far use hand-written IR. Validation on real Clang output is
+pending (issue #2).
 
 ### Candidate Optimization Generator — Planned
 Produces a small, fixed set of variants: the baseline and loop unrolling with
@@ -100,10 +110,21 @@ Feature definitions (to be finalized in Phase 1; only features that can be
 extracted reliably will be kept):
 
 - **nᵢ(F)** — estimated *dynamic* count of IR instructions in class *i*
-  (integer ALU, multiply/divide, load, store, call). Static counts are weighted
-  by block execution frequency. How frequencies are obtained (LLVM's block
-  frequency analysis, constant trip counts, or a native profiling run) is an
-  open Phase 1 decision.
+  (classes in `traceopt/features.py`: alu, mul, div, cmp, select, cast,
+  address, load, store, cond_branch, jump, ret, phi, call, other).
+  Implemented in `traceopt/frequency.py` *(Experimental)*:
+  - Trip counts come from induction variables of rotated single-latch loops,
+    with constant or parameter bounds (`traceopt/loops.py`).
+  - Each block's frequency is its reach probability within its innermost
+    loop iteration, multiplied by the enclosing trip counts.
+  - Loop guards are assumed to enter the loop when its trip count is known to
+    be at least 1. Other conditional branches are split 50/50.
+
+  Limits: data-dependent branch probabilities are guesses, early exits
+  (`break`) are not modeled, and an unknown trip count makes the estimate
+  unavailable. IR counts are not machine instructions: in the xorshift loop,
+  9 non-phi IR instructions cost 8 measured cycles per iteration, so the
+  weights must absorb lowering effects.
 - **M(F)** — memory-footprint features relevant to RISC Zero paging: code size
   of the lowered function in bytes and an estimate of distinct memory pages
   touched. RISC Zero's documentation states that each page-in/page-out costs on
