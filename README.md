@@ -10,9 +10,10 @@ optimization decisions for zero-knowledge virtual machines (zkVMs) by
 estimating the **cost of proving** a program's execution, instead of relying
 only on conventional goals such as native speed or code size.
 
-> **Status: early development (Phase 0).** No part of the optimization pipeline
-> is implemented yet. This README describes the planned design and marks each
-> stage's status. See [Current status](#current-status).
+> **Status: early development (Phases 0–1).** The RISC Zero measurement
+> backend works. Analyzer, segment model, calibration, and decision components
+> exist but have not yet run end to end on real Clang IR. TraceOpt does not yet
+> optimize anything. See [Current status](#current-status).
 
 ## The problem
 
@@ -51,10 +52,10 @@ Source (C) → LLVM IR → Program Analysis → Candidate Optimizations
 | Stage | Status |
 |---|---|
 | Source → LLVM IR (`clang`) | Planned |
-| Program analysis (feature extraction) | Planned |
-| Candidate generation (`opt` loop-unroll factors) | Planned |
-| Proving-cost estimation | Planned |
-| Optimization selection | Planned |
+| Program analysis (feature extraction) | Implemented on hand-written IR; not yet run on Clang output |
+| Candidate generation (`opt` loop-unroll factors) | Planned (needs LLVM) |
+| Proving-cost estimation | Segment padding model implemented and checked against measurements; per-instruction weights not yet calibrated |
+| Optimization selection | Decision logic implemented and unit-tested; not yet connected to real predictions |
 | Target compilation into a RISC Zero guest | C via GCC works (Phase 0); Clang/IR route not yet tested |
 | Evaluation report (JSON) | Planned |
 
@@ -88,21 +89,34 @@ TraceOpt keeps these quantities separate and never reports one as another:
 
 ## Current status
 
-**Implemented (Phase 0 infrastructure, tested):**
-- A RISC Zero host that runs a guest in the executor or the prover and prints
-  JSON with segments and total/user/paging/reserved cycles.
-- A guest that calls a C benchmark kernel through FFI and reports the cycles
-  spent inside the kernel. The C file is compiled with RISC Zero's GCC
-  toolchain.
-- Two benchmark kernels (`sum_squares`, `xorshift`) with Python references
-  and a differential smoke test.
+**Implemented (tested):**
+- *Backend:* a RISC Zero host that runs a guest in the executor or the prover
+  and prints JSON with segments and total/user/paging/reserved cycles. A guest
+  calls a C benchmark kernel through FFI and reports the cycles spent inside
+  it. C is currently compiled with RISC Zero's GCC toolchain.
+- *Benchmarks:* five C kernels (`sum_squares`, `xorshift`, `nested_fnv`,
+  `branchy`, `strided_rw`) with Python references, verified natively and in
+  the zkVM, and a baseline runner that records cycles, code size, and
+  toolchain versions.
+- *Analyzer* (`traceopt/`): textual LLVM IR parser, dominators and natural
+  loops, trip counts, instruction classes, and the `traceopt analyze` CLI.
+  Tested on hand-written IR only.
+- *Segment model:* predicts RISC Zero's segment count and padded total cycles.
+  It matches all 9 measured configurations.
 
-None of the TraceOpt pipeline stages (analysis, cost model, decision) exist
-yet. Measured results so far are in [docs/feasibility.md](docs/feasibility.md).
+**Experimental (implemented, not yet validated on real data):**
+- Dynamic instruction-count estimation (`traceopt/frequency.py`).
+- Least-squares calibration (`traceopt/calibrate.py`) and the cost-aware
+  decision engine (`traceopt/decision.py`). Both are unit-tested on
+  synthetic inputs.
 
-**In progress (Phase 0):**
+Measured results are in [docs/feasibility.md](docs/feasibility.md).
+
+**Blocked / in progress:**
 - Compiling kernels through Clang → LLVM IR → `opt` → RISC-V object and
-  linking them into the guest (LLVM is not installed yet).
+  linking them into the guest. LLVM is not installed yet, and this blocks
+  running the analyzer on real IR, generating unroll candidates, and
+  calibrating the model.
 - Proving with capped segment sizes: a single 2^20-cycle segment exceeded the
   ~7.6 GB of memory available to WSL.
 
@@ -160,13 +174,23 @@ collected yet.
 
 ## Testing
 
+Unit tests (Python 3.10+, standard library only; run from the repository root):
+
 ```bash
-scripts/smoke_test.sh   # inside WSL, after building
+python -m unittest discover -s tests
 ```
 
-This runs both guests in the RISC Zero executor and compares their outputs
-with the Python references in `tests/reference.py`. Unit tests for feature
-extraction and decision logic are planned for Phases 1–3.
+They cover the IR parser, loops and trip counts (cross-checked against
+simulation), instruction classes, frequency estimates, the CLI, the segment
+model (against measured data), calibration, and decision logic.
+
+zkVM checks (inside WSL, after building):
+
+```bash
+scripts/smoke_test.sh                     # probe and kernel guests vs. reference
+scripts/check_kernel.sh nested_fnv 1 100  # one benchmark in the zkVM
+python3 scripts/run_baseline.py --out results/baseline-gcc.json
+```
 
 ## Repository structure
 
@@ -183,13 +207,25 @@ TraceOpt/
 ├── benchmarks/             C kernels exporting traceopt_kernel(uint32_t)
 ├── docs/
 │   ├── architecture.md
+│   ├── design-decisions.md
 │   ├── development-roadmap.md
 │   └── feasibility.md      Phase 0 measurements and blockers
+├── results/                curated measurement outputs (JSON)
 ├── scripts/
 │   ├── build_backend.sh
+│   ├── check_kernel.sh
+│   ├── run_baseline.py
 │   └── smoke_test.sh
-└── tests/
-    └── reference.py        reference implementations of the kernels
+├── tests/                  unit tests, IR fixtures, kernel references
+└── traceopt/               Python package
+    ├── ir.py               textual LLVM IR parser
+    ├── loops.py            dominators, natural loops, trip counts
+    ├── features.py         instruction classes and static counts
+    ├── frequency.py        block frequencies, dynamic counts
+    ├── segments.py         RISC Zero segment and padding model
+    ├── calibrate.py        least-squares fit, held-out error
+    ├── decision.py         cost-aware candidate selection
+    └── cli.py              `python -m traceopt analyze`
 ```
 
 ## Limitations and future work
