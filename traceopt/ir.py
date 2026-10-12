@@ -27,6 +27,7 @@ _LABEL_RE = re.compile(r"^(" + _NAME + r"):")
 _ASSIGN_RE = re.compile(r"^%(" + _NAME + r")\s*=\s*(.*)$")
 _LABEL_REF_RE = re.compile(r"label\s+%(" + _NAME + r")")
 _UNNAMED_ARG_RE = re.compile(r"%(\d+)\b")
+_PARAM_RE = re.compile(r"%(" + _NAME + r")")
 
 
 def _unquote(name: str) -> str:
@@ -75,6 +76,7 @@ class BasicBlock:
 class Function:
     name: str
     blocks: list[BasicBlock]
+    params: list[str] = field(default_factory=list)
 
     @property
     def entry(self) -> BasicBlock:
@@ -133,7 +135,11 @@ def parse_module(source: str) -> Module:
         if current is None:
             m = _DEFINE_RE.match(line)
             if m:
-                current = Function(name=_unquote(m.group(1)), blocks=[])
+                current = Function(
+                    name=_unquote(m.group(1)),
+                    blocks=[],
+                    params=[_unquote(p) for p in _PARAM_RE.findall(m.group(2))],
+                )
                 entry_label = _implicit_entry_label(m.group(2))
             continue
 

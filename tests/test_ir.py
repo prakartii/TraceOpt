@@ -14,6 +14,9 @@ class ParseXorshiftTest(unittest.TestCase):
     def test_finds_single_function(self):
         self.assertEqual(self.fn.name, "traceopt_kernel")
 
+    def test_params(self):
+        self.assertEqual(self.fn.params, ["0"])
+
     def test_block_labels_including_implicit_entry(self):
         self.assertEqual([b.label for b in self.fn.blocks], ["1", "3", "5"])
 
