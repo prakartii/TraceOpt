@@ -25,11 +25,16 @@ Status values: Not started / In progress / Done / Blocked.
 Tasks:
 - [x] Audit the repository (one initial commit, README only).
 - [x] Choose RISC Zero as the primary backend, with SP1 as the fallback.
-- [ ] Install LLVM/Clang, Rust, and the RISC Zero toolchain in WSL Ubuntu.
-- [ ] Build and run a minimal RISC Zero guest; record its cycle count.
-- [ ] Test whether a Clang-compiled C kernel links into a RISC Zero guest.
-- [ ] Measure peak memory of a small proof under the current WSL memory limit.
-- [ ] Record which metrics are accessible: cycles, segments, proving time, code size.
+- [x] Install Rust and the RISC Zero toolchain (3.0.6) in WSL Ubuntu.
+- [ ] Install LLVM/Clang in WSL Ubuntu (needs `sudo`).
+- [x] Build and run a minimal RISC Zero guest; record its cycle count.
+- [x] Link a C kernel into a RISC Zero guest (GCC route).
+- [ ] Link a Clang/LLVM-IR-compiled C kernel into a RISC Zero guest.
+- [x] Measure peak memory of a small proof (2^15 segment: 303 MB).
+- [ ] Measure proving memory with capped segment sizes (a 2^20 segment was OOM-killed).
+- [x] Record accessible metrics: segments and total/user/paging/reserved cycles,
+      plus in-guest kernel cycles. Proving time is available for small segments.
+      Code size is not yet measured.
 
 **Deliverable:** `docs/feasibility.md` with commands, outputs, and blockers.
 **Completion criterion:** A simple program runs through the toolchain, or a
