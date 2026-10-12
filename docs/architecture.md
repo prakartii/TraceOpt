@@ -140,6 +140,24 @@ The weights *w* are fitted by least squares against measured RISC Zero cycle
 counts from calibration programs (Phase 2). Prediction error is reported on
 held-out benchmarks.
 
+### From predicted cycles to proving work: segment padding (Implemented)
+
+`C(F)` predicts *user* cycles (plus paging). Proving work, however, follows
+the padded `total_cycles`, which `traceopt/segments.py` derives using the
+rule in RISC Zero 3.0.6's executor (`risc0-circuit-rv32im` 4.0.5):
+
+```
+segment cycles = user + paging + 4113 (reserved)
+split when segment cycles > 2^L − 25000      (L = segment limit po2, default 20)
+non-final segments → 2^L;   final segment → next power of two
+```
+
+This reproduces the segment count and `total_cycles` of all 9 configurations
+measured so far (`tests/test_segments.py`). Consequence for decisions: a
+candidate that saves user cycles but does not cross a power-of-two boundary
+does not change the padded total, so the decision engine compares the
+padded totals, using the raw cycle prediction only to break ties.
+
 ### What the model predicts vs. what is measured
 
 These quantities are related but **not interchangeable**, and reports keep them
