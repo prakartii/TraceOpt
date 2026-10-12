@@ -48,11 +48,24 @@ def branchy(n: int) -> int:
     return acc
 
 
+def strided_rw(n: int) -> int:
+    words, stride = 16384, 256
+    buf = [(i * 2654435761) & MASK for i in range(words)]
+    acc = 0
+    for r in range(n):
+        for i in range(0, words, stride):
+            k = (i + r) & (words - 1)
+            acc = ((acc ^ buf[k]) + r) & MASK
+            buf[k] = acc
+    return acc
+
+
 KERNELS = {
     "sum_squares": sum_squares,
     "xorshift": xorshift,
     "nested_fnv": nested_fnv,
     "branchy": branchy,
+    "strided_rw": strided_rw,
 }
 
 
