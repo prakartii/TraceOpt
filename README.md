@@ -15,7 +15,7 @@ only on conventional goals such as native speed or code size.
 > exist but have not yet run end to end on real Clang IR. TraceOpt does not yet
 > optimize anything. See [Current status](#current-status).
 
-## The problem
+# The problem
 
 A zkVM runs a program and produces a cryptographic proof that the run was
 correct. Generating that proof usually costs far more than running the program,
