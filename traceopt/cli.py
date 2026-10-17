@@ -2,6 +2,11 @@
 
     python -m traceopt analyze <file.ll> [--function NAME] [--arg NAME=VALUE ...]
     python -m traceopt segments <user_cycles> <paging_per_segment> [--po2 L]
+    python -m traceopt decide <candidates.json> [--po2 L] [--min-improvement F]
+                              [--max-code-growth F]
+
+`decide` reads {"baseline": {...}, "candidates": [{...}, ...]}, where each
+entry has the fields of traceopt.decision.Candidate, and prints the decision.
 
 `analyze` prints a JSON feature vector. Dynamic counts need every loop's trip count;
 pass loop-bound parameters with --arg (e.g. --arg 0=1000 for `i32 %0`).
@@ -12,8 +17,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
+from traceopt.decision import Candidate, Policy, decide
 from traceopt.features import CLASSES, static_counts
 from traceopt.frequency import UnknownTripCount, dynamic_counts
 from traceopt.ir import UnsupportedIR, parse_module
@@ -75,6 +82,24 @@ def segments(user_cycles: int, paging_per_segment: int, limit_po2: int) -> dict:
     }
 
 
+def _candidate(entry: dict) -> Candidate:
+    try:
+        return Candidate(**entry)
+    except TypeError as e:
+        raise ValueError(f"bad candidate {entry!r}: {e}") from None
+
+
+def decide_file(path: Path, policy: Policy) -> dict:
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or "baseline" not in data:
+        raise ValueError(f"{path}: expected an object with 'baseline' and 'candidates'")
+    baseline = _candidate(data["baseline"])
+    candidates = [_candidate(c) for c in data.get("candidates", [])]
+    d = decide(baseline, candidates, policy)
+    return {"policy": asdict(policy), "selected": d.selected, "reason": d.reason,
+            "rows": [asdict(r) for r in d.rows]}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceopt")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -88,11 +113,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("paging_per_segment", type=int)
     p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2,
                    help="segment limit po2 (default %(default)s)")
+    p = sub.add_parser("decide", help="select among predicted unroll candidates")
+    p.add_argument("file", type=Path)
+    p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2)
+    p.add_argument("--min-improvement", type=float, default=Policy.min_improvement)
+    p.add_argument("--max-code-growth", type=float, default=Policy.max_code_growth)
     ns = parser.parse_args(argv)
 
     try:
         if ns.command == "segments":
             report = segments(ns.user_cycles, ns.paging_per_segment, ns.po2)
+        elif ns.command == "decide":
+            policy = Policy(ns.min_improvement, ns.max_code_growth, ns.po2)
+            report = decide_file(ns.file, policy)
         else:
             report = analyze(ns.file, ns.function, dict(ns.arg))
     except (OSError, KeyError, ValueError, UnsupportedIR) as e:
