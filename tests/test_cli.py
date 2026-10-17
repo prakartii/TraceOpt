@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,6 +74,50 @@ class SegmentsCliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(out, "")
         self.assertIn("exceed", err)
+
+
+def entry(name, user, code, paging=18635):
+    return {"name": name, "predicted_user_cycles": user,
+            "paging_per_segment": paging, "code_bytes": code}
+
+
+class DecideCliTest(unittest.TestCase):
+    def decide(self, data, *flags):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "candidates.json"
+            path.write_text(json.dumps(data))
+            return run("decide", str(path), *flags)
+
+    def test_selects_candidate(self):
+        data = {"baseline": entry("unroll1", 30000, 140),
+                "candidates": [entry("unroll2", 9000, 200)]}
+        code, out, _ = self.decide(data)
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(report["selected"], "unroll2")
+        self.assertEqual([r["note"] for r in report["rows"]], ["baseline", "eligible"])
+
+    def test_policy_flags(self):
+        data = {"baseline": entry("unroll1", 30000, 140),
+                "candidates": [entry("unroll2", 9000, 200)]}
+        code, out, _ = self.decide(data, "--max-code-growth", "1.2")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(report["selected"], "unroll1")
+        self.assertEqual(report["policy"]["max_code_growth"], 1.2)
+
+    def test_null_prediction_keeps_baseline(self):
+        data = {"baseline": entry("unroll1", 30000, 140),
+                "candidates": [entry("unroll2", None, 200)]}
+        code, out, _ = self.decide(data)
+        self.assertEqual(json.loads(out)["selected"], "unroll1")
+
+    def test_malformed_input(self):
+        for data in ({"candidates": []}, {"baseline": {"name": "x"}}, [1, 2]):
+            with self.subTest(data=data):
+                code, _, err = self.decide(data)
+                self.assertEqual(code, 1)
+                self.assertIn("error", err)
 
 
 if __name__ == "__main__":
