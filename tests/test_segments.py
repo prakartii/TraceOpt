@@ -1,6 +1,11 @@
 import unittest
 
-from traceopt.segments import RESERVED_CYCLES, padded_total_cycles, segment_po2s
+from traceopt.segments import (
+    MAX_INSN_CYCLES_LOWER_PO2,
+    RESERVED_CYCLES,
+    padded_total_cycles,
+    segment_po2s,
+)
 
 # Measured in execute mode with RISC Zero 3.0.6 (docs/feasibility.md):
 # (label, user_cycles, total paging cycles, segment limit po2, segments, total_cycles)
@@ -38,6 +43,14 @@ class SegmentModelTest(unittest.TestCase):
     def test_non_final_segments_use_limit(self):
         po2s = segment_po2s(804100, 7956, 18)
         self.assertEqual(po2s[:-1], [18, 18, 18])
+
+    def test_small_limit_uses_smaller_margin(self):
+        # Below po2 15 the split threshold is 2^L - 2000, not 2^L - 25000.
+        # Not measured: limits below 2^15 were not run (docs/feasibility.md).
+        paging = 1000
+        fits = (1 << 14) - MAX_INSN_CYCLES_LOWER_PO2 - paging - RESERVED_CYCLES
+        self.assertEqual(segment_po2s(fits, paging, 14), [14])
+        self.assertEqual(len(segment_po2s(fits + 1, paging, 14)), 2)
 
     def test_invalid_inputs(self):
         with self.assertRaises(ValueError):
