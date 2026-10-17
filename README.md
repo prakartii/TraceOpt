@@ -1,5 +1,7 @@
 # TraceOpt
 
+[![tests](https://github.com/prakartii/TraceOpt/actions/workflows/tests.yml/badge.svg)](https://github.com/prakartii/TraceOpt/actions/workflows/tests.yml)
+
 **TraceOpt: A Proving-Cost-Aware Compiler Optimization Framework for Zero-Knowledge Virtual Machines**
 
 > Invention-disclosure title: *Method and System for Proving-Cost-Aware
