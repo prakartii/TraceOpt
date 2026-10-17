@@ -1,8 +1,9 @@
 """Command-line interface.
 
     python -m traceopt analyze <file.ll> [--function NAME] [--arg NAME=VALUE ...]
+    python -m traceopt segments <user_cycles> <paging_per_segment> [--po2 L]
 
-Prints a JSON feature vector. Dynamic counts need every loop's trip count;
+`analyze` prints a JSON feature vector. Dynamic counts need every loop's trip count;
 pass loop-bound parameters with --arg (e.g. --arg 0=1000 for `i32 %0`).
 """
 
@@ -17,6 +18,7 @@ from traceopt.features import CLASSES, static_counts
 from traceopt.frequency import UnknownTripCount, dynamic_counts
 from traceopt.ir import UnsupportedIR, parse_module
 from traceopt.loops import find_loops, trip_count
+from traceopt.segments import DEFAULT_SEGMENT_LIMIT_PO2, padded_total_cycles, segment_po2s
 
 
 def _parse_arg(text: str) -> tuple[str, int]:
@@ -61,6 +63,18 @@ def analyze(path: Path, function: str, args: dict[str, int]) -> dict:
     return report
 
 
+def segments(user_cycles: int, paging_per_segment: int, limit_po2: int) -> dict:
+    po2s = segment_po2s(user_cycles, paging_per_segment, limit_po2)
+    return {
+        "user_cycles": user_cycles,
+        "paging_per_segment": paging_per_segment,
+        "segment_limit_po2": limit_po2,
+        "segments": len(po2s),
+        "segment_po2s": po2s,
+        "padded_total_cycles": padded_total_cycles(user_cycles, paging_per_segment, limit_po2),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceopt")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -69,11 +83,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--function", default="traceopt_kernel")
     p.add_argument("--arg", type=_parse_arg, action="append", default=[],
                    help="value of a function parameter, NAME=VALUE")
+    p = sub.add_parser("segments", help="predict RISC Zero segments and padded cycles")
+    p.add_argument("user_cycles", type=int)
+    p.add_argument("paging_per_segment", type=int)
+    p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2,
+                   help="segment limit po2 (default %(default)s)")
     ns = parser.parse_args(argv)
 
     try:
-        report = analyze(ns.file, ns.function, dict(ns.arg))
-    except (OSError, KeyError, UnsupportedIR) as e:
+        if ns.command == "segments":
+            report = segments(ns.user_cycles, ns.paging_per_segment, ns.po2)
+        else:
+            report = analyze(ns.file, ns.function, dict(ns.arg))
+    except (OSError, KeyError, ValueError, UnsupportedIR) as e:
         print(f"traceopt: error: {e}", file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2))
