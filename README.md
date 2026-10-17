@@ -208,9 +208,12 @@ python3 scripts/run_baseline.py --out results/baseline-gcc.json
 
 ```
 TraceOpt/
+├── .github/workflows/      CI: unit tests on Python 3.10 and 3.12
 ├── .gitattributes
 ├── .gitignore
+├── CONTRIBUTING.md
 ├── README.md
+├── pyproject.toml          package metadata and `traceopt` command
 ├── backend/risc0/          RISC Zero workspace
 │   ├── host/               runs guests, prints JSON measurements
 │   └── methods/
@@ -237,7 +240,7 @@ TraceOpt/
     ├── segments.py         RISC Zero segment and padding model
     ├── calibrate.py        least-squares fit, held-out error
     ├── decision.py         cost-aware candidate selection
-    └── cli.py              `python -m traceopt analyze`
+    └── cli.py              `traceopt analyze | segments | decide`
 ```
 
 ## Limitations and future work
