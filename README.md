@@ -154,8 +154,20 @@ Proving (`prove`) works for small inputs. For larger inputs, set
 `TRACEOPT_SEGMENT_PO2` (for example `18`) to cap memory. See
 [docs/feasibility.md](docs/feasibility.md) §5.
 
-The TraceOpt optimizer itself has no usage instructions yet because it does
-not exist yet.
+The analysis and model components have a command-line interface (Python
+3.10+, standard library only). It does not optimize anything yet: `decide`
+takes predictions you supply, because candidate generation and the calibrated
+model are not connected yet.
+
+```bash
+pip install .                     # optional; or use `python -m traceopt`
+traceopt analyze tests/fixtures/xorshift_o1.ll --arg 0=1000   # features (JSON)
+traceopt segments 12100 18635                                 # padded total cycles
+traceopt decide candidates.json                               # cost-aware choice
+```
+
+`candidates.json` holds `{"baseline": {...}, "candidates": [...]}`, each entry
+with `name`, `predicted_user_cycles`, `paging_per_segment`, and `code_bytes`.
 
 ## Benchmarking and evaluation (planned)
 
