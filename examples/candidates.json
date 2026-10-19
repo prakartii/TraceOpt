@@ -1,0 +1,9 @@
+{
+  "baseline": {"name": "unroll1", "predicted_user_cycles": 30000, "paging_per_segment": 18635, "code_bytes": 140},
+  "candidates": [
+    {"name": "unroll2", "predicted_user_cycles": 20000, "paging_per_segment": 18635, "code_bytes": 220},
+    {"name": "unroll4", "predicted_user_cycles": 9000, "paging_per_segment": 18635, "code_bytes": 400},
+    {"name": "unroll8", "predicted_user_cycles": 8500, "paging_per_segment": 18635, "code_bytes": 760,
+     "passed_differential_test": false}
+  ]
+}

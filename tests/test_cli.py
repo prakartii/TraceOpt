@@ -154,6 +154,16 @@ class DecideCliTest(unittest.TestCase):
         self.assertEqual(report["selected"], "unroll1")
         self.assertEqual(report["policy"]["max_code_growth"], 1.2)
 
+    def test_committed_example(self):
+        example = Path(__file__).parent.parent / "examples" / "candidates.json"
+        code, out, _ = run("decide", str(example))
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(report["selected"], "unroll4")
+        self.assertEqual([r["note"] for r in report["rows"]],
+                         ["baseline", "same padded size as baseline", "eligible",
+                          "failed differential test"])
+
     def test_null_prediction_keeps_baseline(self):
         data = {"baseline": entry("unroll1", 30000, 140),
                 "candidates": [entry("unroll2", None, 200)]}

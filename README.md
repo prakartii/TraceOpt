@@ -296,10 +296,10 @@ traceopt segments 12100 18635            # → 1 segment, padded total 65536
 traceopt segments 804100 7956 --po2 18   # → 4 segments
 
 # Cost-aware choice among candidates
-traceopt decide candidates.json [--min-improvement 0.05] [--max-code-growth 4] [--po2 20]
+traceopt decide examples/candidates.json [--min-improvement 0.05] [--po2 20]
 ```
 
-`candidates.json` format:
+`candidates.json` format (see `examples/candidates.json`):
 
 ```json
 {
