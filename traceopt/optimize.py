@@ -38,6 +38,7 @@ class Variant:
     prediction_unavailable: str | None
     differential_inputs: list[int]
     differential_failure: str | None
+    same_as: str | None = None    # same object code as this smaller factor
 
     @property
     def name(self) -> str:
@@ -92,10 +93,14 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
     inputs = sorted(set(DIFF_INPUTS) | ({n} if n is not None and n <= DIFF_MAX_N else set()))
 
     variants = []
+    seen: dict[str, str] = {}
     for k in sorted(set(factors)):
         ir = toolchain.unroll(base_ir, k, work / f"u{k}.ll")
         obj = toolchain.codegen(ir, work / f"u{k}.o")
         text = ir.read_text()
+        # opt reprints IR even when it changes nothing, so compare the code.
+        same_as = seen.setdefault(obj.read_bytes().hex(), f"unroll{k}")
+        same_as = None if same_as == f"unroll{k}" else same_as
         fn = parse_module(text).functions[FUNCTION]
         try:
             kernel = model.kernel_cycles(dynamic_counts(fn, args))
@@ -105,7 +110,7 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
         diff = None if k == 1 else _differential(base_interp, Interpreter(text), inputs)
         variants.append(Variant(k, ir, obj, toolchain.symbol_size(obj),
                                 footprint(text, FUNCTION).data_pages, kernel, why,
-                                inputs, diff))
+                                inputs, diff, same_as))
 
     baseline = next(v for v in variants if v.factor == 1)
 
@@ -122,6 +127,7 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
         return Candidate(v.name, user, round(model.paging_cycles(pages)),
                          v.code_bytes, v.differential_failure is None)
 
-    decision = decide(candidate(baseline), [candidate(v) for v in variants if v.factor != 1],
-                      policy)
+    # Variants opt left unchanged are not separate candidates.
+    others = [candidate(v) for v in variants if v.factor != 1 and v.same_as is None]
+    decision = decide(candidate(baseline), others, policy)
     return Result(source, args, variants, decision)

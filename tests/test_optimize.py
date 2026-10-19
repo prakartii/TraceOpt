@@ -73,6 +73,14 @@ class OptimizeTest(unittest.TestCase):
                                        round(MODEL.paging_cycles(extra)))
         self.assertEqual(row.padded_total, expected)
 
+    def test_unchanged_variants_are_not_candidates(self):
+        # Clang folds sum_squares into a closed form: there is no loop to unroll.
+        result = self.run_opt(100, bench="sum_squares")
+        self.assertEqual([v.same_as for v in result.variants],
+                         [None, "unroll1", "unroll1", "unroll1"])
+        self.assertEqual([r.name for r in result.decision.rows], ["unroll1"])
+        self.assertEqual(result.decision.selected, "unroll1")
+
     def test_baseline_factor_required(self):
         with self.assertRaises(ValueError):
             optimize(ROOT / "benchmarks" / "xorshift.c", {"0": 1}, MODEL, self.work,
