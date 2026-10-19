@@ -32,6 +32,20 @@ class BuildArgumentsTest(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs["env"]["TRACEOPT_SEGMENT_PO2"], "18")
         self.assertEqual(run.call_args.args[0][1:], ["execute", "kernel", "10"])
 
+    def test_guest_only_build_and_loaded_kernel(self):
+        result = mock.Mock(stdout='{"stats": {}}')
+        with mock.patch.dict("os.environ", {"TRACEOPT_KERNEL_ELF": "stale.bin"}), \
+                mock.patch("subprocess.run", return_value=result) as run:
+            backend.build(obj=Path("k.o"), guest_only=True)
+            self.assertEqual(run.call_args.kwargs["env"]["TRACEOPT_GUEST_ONLY"], "1")
+            backend.build(obj=Path("k.o"))
+            self.assertNotIn("TRACEOPT_GUEST_ONLY", run.call_args.kwargs["env"])
+            backend.execute(5)
+            self.assertNotIn("TRACEOPT_KERNEL_ELF", run.call_args.kwargs["env"])
+            backend.execute(5, kernel_elf=backend.KERNEL_BIN)
+            self.assertEqual(run.call_args.kwargs["env"]["TRACEOPT_KERNEL_ELF"],
+                             str(backend.KERNEL_BIN))
+
     def test_missing_tool_reports_unavailable(self):
         self.assertEqual(backend.tool_version("definitely-not-a-tool-xyz"), "unavailable")
 
