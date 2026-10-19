@@ -17,6 +17,14 @@ class CostModelTest(unittest.TestCase):
         self.assertEqual(MODEL.paging_cycles(0), 18635.0)
         self.assertEqual(MODEL.paging_cycles(64), 18635.0 + 64 * 664.0)
 
+    def test_composite_features(self):
+        model = CostModel(intercept=90.0, weights={"memory": 2.0, "alu": 1.0},
+                          guest_overhead=0.0, paging_base=0.0, paging_per_page=0.0,
+                          feature_definitions={"memory": ["load", "store"]})
+        dyn = {"load": 10.0, "store": 5.0, "alu": 7.0}
+        self.assertEqual(model.feature_value("memory", dyn), 15.0)
+        self.assertEqual(model.kernel_cycles(dyn), 90.0 + 30.0 + 7.0)
+
     def test_padded_total_uses_segment_model(self):
         dyn = {"alu": 7000.0, "cond_branch": 1000.0}
         # 12099 user + 18635 paging + 4113 reserved > 2^15, so 2^16.

@@ -27,9 +27,16 @@ class CostModel:
     paging_base: float
     paging_per_page: float
     source: dict = field(default_factory=dict)   # provenance: data file, toolchain
+    # Feature name -> instruction classes summed into it; a feature missing
+    # here is a single class of the same name.
+    feature_definitions: dict[str, list[str]] = field(default_factory=dict)
+
+    def feature_value(self, feature: str, dynamic_counts: dict[str, float]) -> float:
+        classes = self.feature_definitions.get(feature, [feature])
+        return sum(dynamic_counts.get(c, 0.0) for c in classes)
 
     def kernel_cycles(self, dynamic_counts: dict[str, float]) -> float:
-        return self.intercept + sum(w * dynamic_counts.get(f, 0.0)
+        return self.intercept + sum(w * self.feature_value(f, dynamic_counts)
                                     for f, w in self.weights.items())
 
     def user_cycles(self, dynamic_counts: dict[str, float]) -> float:
