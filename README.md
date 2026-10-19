@@ -12,11 +12,14 @@ optimization decisions for zero-knowledge virtual machines (zkVMs) by
 estimating the **cost of proving** a program's execution, instead of relying
 only on conventional goals such as native speed or code size.
 
-> **Status: early development (Phases 0–3 in progress).** The RISC Zero
-> measurement backend works, and five benchmarks have reproducible baseline
-> measurements. The analyzer, segment model, calibration, and decision
-> components exist and are unit-tested, but have not yet run end to end on
-> real Clang IR. **TraceOpt does not yet optimize anything.** See
+> **Status: research prototype, working end to end (Phases 0–5).**
+> `traceopt optimize` compiles a C kernel with Clang, generates loop-unroll
+> variants with LLVM, predicts each one's padded proving size with a model
+> calibrated on RISC Zero measurements, picks one (or keeps the baseline),
+> and can measure the result in the RISC Zero executor. On a first
+> evaluation of 16 unseen cases it halved the padded size once, kept the
+> baseline 15 times, and never chose a variant that measured worse; it also
+> missed 3 available wins. See [Results](#results) and
 > [Project progress](#project-progress).
 
 ## Contents
@@ -76,17 +79,16 @@ Source (C) → LLVM IR → Program Analysis → Candidate Optimizations
 
 | Stage | Module | Status |
 |---|---|---|
-| Source → LLVM IR (`clang`) | — | Planned (LLVM not yet installed) |
-| Program analysis (feature extraction) | `traceopt/ir.py`, `loops.py`, `features.py` | Implemented; tested on hand-written IR only |
-| Dynamic count estimation | `traceopt/frequency.py` | Experimental |
-| Candidate generation (`opt` loop-unroll factors) | — | Planned (needs LLVM) |
-| Proving-cost estimation | `traceopt/segments.py`, `calibrate.py` | Segment model implemented and checked against measurements; per-instruction weights not yet calibrated |
-| Optimization selection | `traceopt/decision.py` | Implemented and unit-tested; not yet fed real predictions |
-| Target compilation into a RISC Zero guest | `backend/risc0/` | C via RISC Zero's GCC works; Clang/IR route not yet tested |
-| Evaluation report (JSON) | `scripts/run_baseline.py` | Baseline only; full reports planned |
+| Source → LLVM IR (Clang 21) | `traceopt/toolchain.py` | Implemented |
+| Program analysis (loops, trip counts, instruction classes, footprint) | `traceopt/ir.py`, `loops.py`, `features.py`, `footprint.py` | Implemented; matches LLVM LoopInfo on all benchmarks |
+| Dynamic count estimation | `traceopt/frequency.py`, `evaluate.py` | Implemented; exact vs. an IR interpreter except data-dependent branches |
+| Candidate generation (`opt` loop-unroll factors) | `traceopt/toolchain.py` | Implemented |
+| Proving-cost estimation | `traceopt/model.py`, `segments.py`, `calibrate.py` | Implemented; calibrated, 8.3% mean held-out cycle error |
+| Optimization selection | `traceopt/decision.py`, `optimize.py` | Implemented, with differential testing and an uncertainty margin |
+| Target compilation into a RISC Zero guest | `backend/risc0/`, `traceopt/backend.py` | Implemented (Clang and GCC routes verified) |
+| Evaluation and reports (JSON) | `scripts/evaluate.py`, `traceopt/report.py` | Implemented; first evaluation done |
 
-Linking a Clang-compiled C kernel into a RISC Zero guest has **not yet been
-verified**. Module responsibilities are described in
+Module responsibilities are described in
 [docs/architecture.md](docs/architecture.md).
 
 ## Project progress
