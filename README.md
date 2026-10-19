@@ -101,27 +101,24 @@ roadmap checklists, not measurements.
 
 | Phase | Goal | Status | Estimate |
 |---|---|---|---|
-| 0. Feasibility | Toolchain works; a C kernel runs in a RISC Zero guest | In progress: GCC route, metrics, and small proofs done; Clang route and proving memory pending | ~80% |
-| 1. IR analysis and baseline | Analyzer, benchmarks, reproducible baseline | In progress: analyzer, 5 benchmarks, and baseline done; not yet run on real Clang IR | ~75% |
-| 2. Cost model | Calibrated model with reported error | In progress: segment model and fitting code done; no calibration data yet | ~40% |
-| 3. Cost-aware optimization | Pick an unroll factor or keep the baseline | In progress: decision logic and `traceopt decide` done; candidate generation pending | ~35% |
-| 4. Backend integration and reporting | Automated build → run → report | Not started | ~10% |
-| 5. Evaluation | Baseline vs. `-O2`/`-O3` vs. TraceOpt | Not started | 0% |
-| 6. Finalization and demo | Clean setup check, demo, write-up | Not started | 0% |
+| 0. Feasibility | Toolchain works; a C kernel runs in a RISC Zero guest | Done except proving memory vs. segment size | ~95% |
+| 1. IR analysis and baseline | Analyzer, benchmarks, reproducible baseline | Done: validated on Clang 21 IR against LLVM LoopInfo and an IR interpreter | 100% |
+| 2. Cost model | Calibrated model with reported error | Done: 64 measured variants, held-out error reported | 100% |
+| 3. Cost-aware optimization | Pick an unroll factor or keep the baseline | Done: `traceopt optimize` with differential tests and an uncertainty margin | 100% |
+| 4. Backend integration and reporting | Automated build → run → report | Done: `--measure`, guest-only builds (17 s per variant) | ~90% |
+| 5. Evaluation | Baseline vs. `-O2` vs. TraceOpt | First evaluation done (16 cases); larger benchmark set pending | ~70% |
+| 6. Finalization and demo | Clean setup check, demo, write-up | Demo script done; clean-install check pending | ~40% |
 
-**Overall: roughly 30–35%.**
-
-**Main blocker:** LLVM/Clang is not installed in the WSL environment (it
-needs `sudo`). It blocks running the analyzer on real IR, generating unroll
-candidates, and collecting calibration data, so most remaining work in
-Phases 0–3 waits on it.
+**Overall: roughly 85%.** The full pipeline works; what remains is
+broadening the evaluation and polishing.
 
 **Next steps:**
-1. Install LLVM and record its version ([#1](https://github.com/prakartii/TraceOpt/issues/1)).
-2. Compile a kernel through Clang → `opt` → RISC-V object and link it into the guest ([#2](https://github.com/prakartii/TraceOpt/issues/2)).
-3. Run `traceopt analyze` on every benchmark ([#10](https://github.com/prakartii/TraceOpt/issues/10)).
-4. Build unroll variants (factors 1, 2, 4, 8), measure them, and fit the model ([#15](https://github.com/prakartii/TraceOpt/issues/15), [#16](https://github.com/prakartii/TraceOpt/issues/16)).
-5. Measure proving time and memory against segment size ([#3](https://github.com/prakartii/TraceOpt/issues/3)).
+1. Verify the setup on a clean WSL install ([#26](https://github.com/prakartii/TraceOpt/issues/26)).
+2. Measure proving time and memory against segment size ([#3](https://github.com/prakartii/TraceOpt/issues/3)); needs care with the ~7.6 GB memory limit.
+3. Improve the model where it fails: memory-heavy loops (strided_rw) and
+   multi-segment paging (docs/experiments.md §5).
+4. Add benchmarks so the model is calibrated and evaluated on more than four
+   kernels.
 
 ## Findings so far
 
