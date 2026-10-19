@@ -186,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2)
     p.add_argument("--min-improvement", type=float, default=Policy.min_improvement)
     p.add_argument("--max-code-growth", type=float, default=Policy.max_code_growth)
+    p.add_argument("--uncertainty", type=float, default=0.10,
+                   help="relative prediction error a win must survive (default %(default)s, "
+                        "about the fitted model's held-out error)")
     p.add_argument("--measure", action="store_true",
                    help="build and execute the baseline and the selected variant")
     p = sub.add_parser("analyze", help="extract features from an LLVM IR file")
@@ -208,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2)
     p.add_argument("--min-improvement", type=float, default=Policy.min_improvement)
     p.add_argument("--max-code-growth", type=float, default=Policy.max_code_growth)
+    p.add_argument("--uncertainty", type=float, default=Policy.uncertainty)
     ns = parser.parse_args(argv)
 
     try:
@@ -220,7 +224,8 @@ def main(argv: list[str] | None = None) -> int:
                 raise OSError("LLVM tools not on PATH (source scripts/llvm_env.sh)")
             policy = Policy(min_improvement=ns.min_improvement,
                             max_code_growth=ns.max_code_growth,
-                            segment_limit_po2=ns.po2)
+                            segment_limit_po2=ns.po2,
+                            uncertainty=ns.uncertainty)
             result = optimize.optimize(ns.file, dict(ns.arg), CostModel.load(ns.model),
                                        ns.work, tuple(ns.factors), policy)
             report = result.to_dict()
@@ -231,7 +236,8 @@ def main(argv: list[str] | None = None) -> int:
         elif ns.command == "decide":
             policy = Policy(min_improvement=ns.min_improvement,
                             max_code_growth=ns.max_code_growth,
-                            segment_limit_po2=ns.po2)
+                            segment_limit_po2=ns.po2,
+                            uncertainty=ns.uncertainty)
             report = decide_file(ns.file, policy)
         else:
             report = analyze(ns.file, ns.function, dict(ns.arg))

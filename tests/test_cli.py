@@ -164,6 +164,13 @@ class DecideCliTest(unittest.TestCase):
                          ["baseline", "same padded size as baseline", "eligible",
                           "failed differential test"])
 
+    def test_uncertainty_flag(self):
+        example = Path(__file__).parent.parent / "examples" / "candidates.json"
+        code, out, _ = run("decide", str(example), "--uncertainty", "0.5")
+        report = json.loads(out)
+        self.assertEqual(report["selected"], "unroll1")
+        self.assertEqual(report["policy"]["uncertainty"], 0.5)
+
     def test_null_prediction_keeps_baseline(self):
         data = {"baseline": entry("unroll1", 30000, 140),
                 "candidates": [entry("unroll2", None, 200)]}
