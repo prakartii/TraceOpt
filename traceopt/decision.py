@@ -29,6 +29,9 @@ class Policy:
     # cost of code growth itself is predicted as paging (traceopt/optimize.py).
     max_code_growth: float = 16.0
     segment_limit_po2: int = DEFAULT_SEGMENT_LIMIT_PO2
+    # Relative error band of the cycle predictions. A candidate must win even
+    # with its predictions scaled by (1 + u) and the baseline's by (1 - u).
+    uncertainty: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,9 @@ class Row:
     code_bytes: int | None
     eligible: bool
     note: str
+    # Padded total at the unfavorable edge of the uncertainty band: (1 + u)
+    # for candidates, (1 - u) for the baseline. Equal to padded_total if u = 0.
+    padded_total_bound: int | None = None
 
 
 @dataclass(frozen=True)
@@ -48,10 +54,11 @@ class Decision:
     rows: list[Row]
 
 
-def _padded(c: Candidate, policy: Policy) -> int | None:
+def _padded(c: Candidate, policy: Policy, scale: float = 1.0) -> int | None:
     if c.predicted_user_cycles is None or c.paging_per_segment is None:
         return None
-    return padded_total_cycles(c.predicted_user_cycles, c.paging_per_segment,
+    return padded_total_cycles(round(c.predicted_user_cycles * scale),
+                               round(c.paging_per_segment * scale),
                                policy.segment_limit_po2)
 
 
@@ -62,19 +69,25 @@ def decide(baseline: Candidate, candidates: list[Candidate],
     A candidate is selected only if (1) every prediction needed is available,
     (2) it passed differential testing, (3) its code size is within
     `max_code_growth` of the baseline, and (4) its padded total is at least
-    `min_improvement` below the baseline's. Among eligible candidates the
-    lowest padded total wins, then the lowest user cycles, then the smallest
-    code.
+    `min_improvement` below the baseline's. With `uncertainty` u, (4) must
+    hold between the candidate's padded total at (1 + u) times its predicted
+    cycles and the baseline's at (1 - u) times: the win must survive a
+    prediction error of u in the unfavorable direction. Among eligible
+    candidates the lowest bound wins, then the lowest padded total, then the
+    lowest user cycles, then the smallest code.
     """
+    u = policy.uncertainty
     base_padded = _padded(baseline, policy)
+    base_bound = _padded(baseline, policy, 1 - u)
     rows = [Row(baseline.name, base_padded, baseline.predicted_user_cycles,
-                baseline.code_bytes, False, "baseline")]
+                baseline.code_bytes, False, "baseline", base_bound)]
     if base_padded is None or baseline.code_bytes is None:
         return Decision(baseline.name, "baseline prediction unavailable; keeping baseline", rows)
 
-    eligible: list[tuple[int, int, int, Candidate]] = []
+    eligible: list[tuple[int, int, int, int, Candidate]] = []
     for c in candidates:
         padded = _padded(c, policy)
+        bound = _padded(c, policy, 1 + u)
         if padded is None or c.code_bytes is None:
             note = "prediction unavailable"
         elif not c.passed_differential_test:
@@ -84,16 +97,19 @@ def decide(baseline: Candidate, candidates: list[Candidate],
         elif padded > base_padded * (1 - policy.min_improvement):
             note = ("same padded size as baseline" if padded == base_padded
                     else "improvement below threshold")
+        elif bound > base_bound * (1 - policy.min_improvement):
+            note = f"improvement not robust to {u:.0%} prediction error"
         else:
             note = "eligible"
         ok = note == "eligible"
-        rows.append(Row(c.name, padded, c.predicted_user_cycles, c.code_bytes, ok, note))
+        rows.append(Row(c.name, padded, c.predicted_user_cycles, c.code_bytes, ok, note,
+                        bound))
         if ok:
-            eligible.append((padded, c.predicted_user_cycles, c.code_bytes, c))
+            eligible.append((bound, padded, c.predicted_user_cycles, c.code_bytes, c))
 
     if not eligible:
         return Decision(baseline.name, "no candidate meets the policy; keeping baseline", rows)
-    padded, _, _, best = min(eligible, key=lambda e: e[:3])
+    _, padded, _, _, best = min(eligible, key=lambda e: e[:4])
     saving = 1 - padded / base_padded
     return Decision(best.name, f"predicted padded total {padded} vs {base_padded} "
                                f"({saving:.1%} lower)", rows)

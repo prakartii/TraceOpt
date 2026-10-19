@@ -40,6 +40,25 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(d.selected, "unroll1")
         self.assertEqual(d.rows[1].note, "improvement below threshold")
 
+    def test_uncertainty_rejects_win_near_a_boundary(self):
+        # 8000 + 18635 + 4113 = 30748 fits 2^15 with 2020 cycles to spare;
+        # 10% more user and paging cycles do not fit.
+        nominal = decide(BASE, [cand("unroll4", 8000)])
+        self.assertEqual(nominal.selected, "unroll4")
+        robust = decide(BASE, [cand("unroll4", 8000)], Policy(uncertainty=0.1))
+        self.assertEqual(robust.selected, "unroll1")
+        self.assertEqual(robust.rows[1].note, "improvement not robust to 10% prediction error")
+        self.assertEqual(robust.rows[1].padded_total, 1 << 15)
+        self.assertEqual(robust.rows[1].padded_total_bound, 1 << 16)
+
+    def test_uncertainty_keeps_robust_win(self):
+        d = decide(BASE, [cand("unroll4", 2000, paging=10000)], Policy(uncertainty=0.1))
+        self.assertEqual(d.selected, "unroll4")
+
+    def test_bound_equals_padded_without_uncertainty(self):
+        d = decide(BASE, [cand("a", 9000)])
+        self.assertTrue(all(r.padded_total_bound == r.padded_total for r in d.rows))
+
     def test_code_size_limit(self):
         d = decide(BASE, [cand("unroll8", 8000, code=16 * 140 + 1)])
         self.assertEqual(d.selected, "unroll1")
