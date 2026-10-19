@@ -29,6 +29,7 @@ only on conventional goals such as native speed or code size.
 - [How TraceOpt works](#how-traceopt-works)
 - [Project progress](#project-progress)
 - [Findings so far](#findings-so-far)
+- [Results](#results)
 - [Benchmarks](#benchmarks)
 - [Cost model](#cost-model-initial-proposal)
 - [Installation](#installation)
@@ -149,6 +150,45 @@ All measured in the RISC Zero 3.0.6 executor. Commands and full tables are in
 - **Proving memory is the hardware limit.** A 2^15-cycle proof took 7.0 s and
   peaked at 303 MB. A 2^20-cycle segment was killed after using 7.5 GB, the
   memory available to WSL on the development machine.
+
+## Results
+
+All numbers below come from committed result files; the commands that
+regenerate them are in [docs/cost-model.md](docs/cost-model.md) and
+[docs/experiments.md](docs/experiments.md).
+
+**Cost model** (`results/model-clang21.json`, fitted on 64 measured
+variants: 4 benchmarks × unroll factors 1, 2, 4, 8 × n = 1, 10, 100, 1000):
+
+| Held-out benchmark | Mean error of predicted kernel cycles |
+|---|---|
+| branchy | 1.5% |
+| nested_fnv | 6.4% |
+| xorshift | 7.1% |
+| strided_rw | 18.3% |
+
+Each benchmark is predicted by a model fitted without it. Exact instruction
+counts from the IR interpreter give almost the same errors, so the remaining
+error is in the IR-to-cycles mapping rather than the static analysis.
+
+**Evaluation** (`results/evaluation-clang21.json`, 16 cases at inputs not
+used for calibration, all outputs correct):
+
+| Outcome | Cases |
+|---|---|
+| No unroll factor could lower the padded total; TraceOpt kept the baseline | 12 |
+| A lower padded total was available and TraceOpt chose it (strided_rw, n = 5: −50%) | 1 |
+| A lower padded total was available and TraceOpt missed it | 3 |
+| TraceOpt's choice measured worse than the baseline | 0 |
+
+Clang `-O2` lowered the padded total in one case (nested_fnv, n = 3000) and
+matched the baseline in the other 15. The missed wins are analyzed in
+[docs/experiments.md](docs/experiments.md#5-results): two are near a
+power-of-two boundary, where the 10% safety margin declined to act, and one
+is a model failure on a memory-heavy, multi-segment run.
+
+These results cover four small kernels on one machine and one toolchain;
+they show the approach working, not a general speedup.
 
 ## Benchmarks
 
