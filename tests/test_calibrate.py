@@ -52,6 +52,26 @@ class FitTest(unittest.TestCase):
         self.assertEqual(m.weights["b"], 0.0)
         self.assertAlmostEqual(m.weights["a"], 3.0, places=6)
 
+    def test_relative_fit_balances_scales(self):
+        # Small runs follow y = 100 + x; one huge run has a 10% different slope.
+        rows = [{"x": float(x)} for x in (10, 20, 40, 80, 160)] + [{"x": 1e6}]
+        y = [100.0 + r["x"] for r in rows[:-1]] + [1.1e6]
+        absolute = fit(rows, y, ["x"])
+        relative = fit(rows, y, ["x"], relative=True)
+        err = lambda m: max(abs(e) for e in relative_errors(m, rows[:-1], y[:-1]))
+        self.assertLess(err(relative), err(absolute))
+        self.assertLess(err(relative), 0.05)
+
+    def test_relative_fit_is_exact_on_exact_data(self):
+        rows, y = synthetic({"alu": 3.0, "branch": 5.0}, 10.0, POINTS)
+        m = fit(rows, y, ["alu", "branch"], relative=True)
+        self.assertAlmostEqual(m.intercept, 10.0, places=6)
+        self.assertAlmostEqual(m.weights["branch"], 5.0, places=6)
+
+    def test_relative_fit_needs_positive_targets(self):
+        with self.assertRaises(ValueError):
+            fit([{"a": 1.0}, {"a": 2.0}, {"a": 3.0}], [1.0, 0.0, 2.0], ["a"], relative=True)
+
     def test_too_few_observations(self):
         two_rows = [{"a": 1.0, "b": 3.0}, {"a": 2.0, "b": 1.0}]
         with self.assertRaises(ValueError):  # 2 observations, 3 parameters

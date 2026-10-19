@@ -31,13 +31,18 @@ class LinearModel:
 _RANK_TOL = 1e-9
 
 
-def _ols(rows: list[Row], y: list[float], features: list[str]) -> tuple[float, list[float]]:
+def _ols(rows: list[Row], y: list[float], features: list[str],
+         row_weights: list[float] | None = None) -> tuple[float, list[float]]:
     """Least squares by modified Gram-Schmidt QR on unit-scaled columns.
 
     Avoids the normal equations, which square the condition number: cycle
-    counts span several orders of magnitude across benchmarks.
+    counts span several orders of magnitude across benchmarks. With
+    row_weights, minimizes sum((w_i * residual_i)^2).
     """
-    cols = [[1.0] * len(rows)] + [[float(r.get(f, 0.0)) for r in rows] for f in features]
+    rw = row_weights or [1.0] * len(rows)
+    y = [t * w for t, w in zip(y, rw)]
+    cols = [list(rw)] + [[float(r.get(f, 0.0)) * w for r, w in zip(rows, rw)]
+                         for f in features]
     norms = [sum(x * x for x in c) ** 0.5 for c in cols]
     if any(n == 0 for n in norms):
         raise ValueError("features are linearly dependent; drop or combine some")
@@ -61,8 +66,13 @@ def _ols(rows: list[Row], y: list[float], features: list[str]) -> tuple[float, l
 
 
 def fit(rows: list[Row], y: list[float], features: list[str],
-        nonnegative: bool = True, drop_dependent: bool = False) -> LinearModel:
+        nonnegative: bool = True, drop_dependent: bool = False,
+        relative: bool = False) -> LinearModel:
     """Least-squares fit. Constant features are reported as unidentified.
+
+    With relative, minimizes the sum of squared *relative* errors
+    ((predicted - y) / y), so that large observations (e.g. 600k-cycle runs)
+    do not dominate small ones; all targets must then be positive.
 
     With drop_dependent, features that are linear combinations of earlier
     ones in this data are also reported as unidentified (weight 0) instead of
@@ -78,9 +88,12 @@ def fit(rows: list[Row], y: list[float], features: list[str],
         unidentified += dependent
     if len(rows) < len(active) + 1:
         raise ValueError(f"{len(rows)} observations cannot fit {len(active) + 1} parameters")
+    if relative and any(t <= 0 for t in y):
+        raise ValueError("relative fitting needs positive targets")
+    row_weights = [1.0 / t for t in y] if relative else None
 
     while True:
-        intercept, w = _ols(rows, y, active)
+        intercept, w = _ols(rows, y, active, row_weights)
         negative = [(wi, f) for wi, f in zip(w, active) if wi < 0]
         if not nonnegative or not negative:
             break
@@ -132,13 +145,14 @@ def relative_errors(model: LinearModel, rows: list[Row], y: list[float]) -> list
 
 
 def leave_one_group_out(rows: list[Row], y: list[float], groups: list[str],
-                        features: list[str], nonnegative: bool = True) -> dict[str, list[float]]:
+                        features: list[str], nonnegative: bool = True,
+                        relative: bool = False) -> dict[str, list[float]]:
     """Relative errors on each group (e.g. benchmark) when fitted without it."""
     errors: dict[str, list[float]] = {}
     for g in sorted(set(groups)):
         train = [i for i, gi in enumerate(groups) if gi != g]
         test = [i for i, gi in enumerate(groups) if gi == g]
         model = fit([rows[i] for i in train], [y[i] for i in train], features, nonnegative,
-                    drop_dependent=True)
+                    drop_dependent=True, relative=relative)
         errors[g] = relative_errors(model, [rows[i] for i in test], [y[i] for i in test])
     return errors
