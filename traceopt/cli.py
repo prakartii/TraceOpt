@@ -218,7 +218,9 @@ def main(argv: list[str] | None = None) -> int:
 
             if not toolchain.available():
                 raise OSError("LLVM tools not on PATH (source scripts/llvm_env.sh)")
-            policy = Policy(ns.min_improvement, ns.max_code_growth, ns.po2)
+            policy = Policy(min_improvement=ns.min_improvement,
+                            max_code_growth=ns.max_code_growth,
+                            segment_limit_po2=ns.po2)
             result = optimize.optimize(ns.file, dict(ns.arg), CostModel.load(ns.model),
                                        ns.work, tuple(ns.factors), policy)
             report = result.to_dict()
@@ -227,7 +229,9 @@ def main(argv: list[str] | None = None) -> int:
         elif ns.command == "profile":
             report = profile(ns.file, ns.function, dict(ns.arg))
         elif ns.command == "decide":
-            policy = Policy(ns.min_improvement, ns.max_code_growth, ns.po2)
+            policy = Policy(min_improvement=ns.min_improvement,
+                            max_code_growth=ns.max_code_growth,
+                            segment_limit_po2=ns.po2)
             report = decide_file(ns.file, policy)
         else:
             report = analyze(ns.file, ns.function, dict(ns.arg))
