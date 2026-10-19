@@ -300,6 +300,18 @@ python -m traceopt --help
 
 ## Usage
 
+### Demo (WSL, ~20 seconds after the backend is built)
+
+```bash
+scripts/build_backend.sh   # once
+scripts/demo.sh
+```
+
+It compares the analyzer's estimates with exact counts, lets TraceOpt
+choose an unroll factor for `strided_rw` (n = 5: the padded size halves) and
+`xorshift` (n = 1000: the baseline is kept), and measures each choice in
+the RISC Zero executor next to its prediction.
+
 ### Run a benchmark in the zkVM (WSL)
 
 ```bash
@@ -325,6 +337,8 @@ segment size with `TRACEOPT_SEGMENT_PO2` (see
 # Choose an unroll factor for a C kernel (needs LLVM on PATH and a fitted model)
 source scripts/llvm_env.sh
 traceopt optimize benchmarks/xorshift.c --model results/model-clang21.json --arg 0=1000
+# ... and build, run, and compare the choice with its prediction
+traceopt optimize benchmarks/strided_rw.c --model results/model-clang21.json --arg 0=5 --measure
 
 # Features of an LLVM IR function (JSON). --arg sets loop-bound parameters.
 traceopt analyze tests/fixtures/clang21/xorshift.ll --arg 0=1000
