@@ -31,6 +31,7 @@ from reference import KERNELS  # noqa: E402
 
 from traceopt import backend, toolchain  # noqa: E402
 from traceopt.features import CLASSES, static_counts  # noqa: E402
+from traceopt.footprint import footprint  # noqa: E402
 from traceopt.frequency import UnknownTripCount, dynamic_counts  # noqa: E402
 from traceopt.ir import parse_module  # noqa: E402
 
@@ -77,6 +78,7 @@ def main() -> int:
             backend.build(obj=obj)
             code_bytes = backend.kernel_code_bytes()
             static = static_counts(parse_module(ll.read_text()).functions["traceopt_kernel"])
+            fp = footprint(ll.read_text(), "traceopt_kernel")
             for n in args.n:
                 report = backend.execute(n)
                 want = KERNELS[name](n)
@@ -95,6 +97,8 @@ def main() -> int:
                     "kernel_cycles": report["result"]["kernel_cycles"],
                     **report["stats"],
                     "segment_limit_po2": report["segment_limit_po2"],
+                    "data_pages": fp.data_pages,
+                    "dirty_pages": fp.dirty_pages,
                     "static_counts": {c: static[c] for c in CLASSES},
                     "dynamic_counts": dyn,
                     **({"dynamic_counts_unavailable": why} if why else {}),
