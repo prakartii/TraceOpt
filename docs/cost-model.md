@@ -128,9 +128,10 @@ errors match how the model is judged.
 
 The intercept matches the fixed cost seen directly in the data (xorshift's
 kernel costs 94 + 8n cycles). The weights are per *IR* instruction and absorb
-lowering effects, so they are not machine-level costs; the low memory weight,
-for example, reflects that `getelementptr` address arithmetic is folded into
-the loads and stores during instruction selection.
+lowering effects, so they are not machine-level costs. The low memory weight
+is not understood yet; one possible cause is that address arithmetic counted
+under `compute` is folded into the loads and stores during instruction
+selection, but this has not been checked against the generated code.
 
 ### Held-out error per benchmark
 
@@ -146,14 +147,22 @@ the loads and stores during instruction selection.
   in the linear IR-to-cycles mapping, not in the frequency analysis.
 - **strided_rw is the hardest case:** it is the only benchmark with memory
   traffic, so when it is held out the memory weight is learned from no data.
-- Errors are largest at n = 1, where the fixed cost dominates.
+- **All eight largest in-sample errors are strided_rw.** It is over-predicted
+  by up to 26% at n = 1, where its initialization loop (one store per
+  element) dominates, and under-predicted by 32–35% at n = 1000, where its
+  read-modify-write loop dominates. One memory weight cannot fit both loops.
+  By n, mean in-sample error is 5.6% (n = 1), 4.6% (10), 6.3% (100), and
+  11.5% (1000).
 
 ### Reproducing
 
 ```bash
 source scripts/llvm_env.sh
-python3 scripts/run_variants.py --work ~/.cache/traceopt-variants     --out results/variants-clang21.json
+python3 scripts/run_variants.py --work ~/.cache/traceopt-variants \
+    --out results/variants-clang21.json
 F="compute=alu+mul+div+cmp+select+cast+address memory=load+store control=cond_branch+jump+ret"
-python3 scripts/fit_model.py results/variants-clang21.json --ir ~/.cache/traceopt-variants     --features $F --out results/fit-clang21.json --model-out results/model-clang21.json
-python3 scripts/fit_model.py results/variants-clang21.json --ir ~/.cache/traceopt-variants     --features $F --exact --out results/fit-clang21-exact.json
+python3 scripts/fit_model.py results/variants-clang21.json --ir ~/.cache/traceopt-variants \
+    --features $F --out results/fit-clang21.json --model-out results/model-clang21.json
+python3 scripts/fit_model.py results/variants-clang21.json --ir ~/.cache/traceopt-variants \
+    --features $F --exact --out results/fit-clang21-exact.json
 ```
