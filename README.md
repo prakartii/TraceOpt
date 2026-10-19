@@ -12,10 +12,28 @@ optimization decisions for zero-knowledge virtual machines (zkVMs) by
 estimating the **cost of proving** a program's execution, instead of relying
 only on conventional goals such as native speed or code size.
 
-> **Status: early development (Phases 0–1).** The RISC Zero measurement
-> backend works. Analyzer, segment model, calibration, and decision components
-> exist but have not yet run end to end on real Clang IR. TraceOpt does not yet
-> optimize anything. See [Current status](#current-status).
+> **Status: early development (Phases 0–3 in progress).** The RISC Zero
+> measurement backend works, and five benchmarks have reproducible baseline
+> measurements. The analyzer, segment model, calibration, and decision
+> components exist and are unit-tested, but have not yet run end to end on
+> real Clang IR. **TraceOpt does not yet optimize anything.** See
+> [Project progress](#project-progress).
+
+## Contents
+
+- [The problem](#the-problem)
+- [Approach](#approach)
+- [How TraceOpt works](#how-traceopt-works)
+- [Project progress](#project-progress)
+- [Findings so far](#findings-so-far)
+- [Benchmarks](#benchmarks)
+- [Cost model](#cost-model-initial-proposal)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Repository structure](#repository-structure)
+- [Limitations](#limitations)
 
 # The problem
 
@@ -37,11 +55,16 @@ decide **whether and how** to apply an optimization.
 
 For the first prototype, the scope is deliberately narrow:
 
-- **One backend:** [RISC Zero](https://dev.risczero.com/) (SP1 is the fallback if Phase 0 finds a blocker).
+- **One backend:** [RISC Zero](https://dev.risczero.com/) 3.0.6. SP1 is the
+  fallback; Phase 0 found no blocker that requires it.
 - **One optimization:** loop unrolling, using LLVM's existing `loop-unroll` pass.
   TraceOpt chooses the unroll factor; it does not implement its own unroller.
 - **One cost model:** a linear model over a small set of IR features, calibrated
-  against measured RISC Zero cycle counts.
+  against measured RISC Zero cycle counts, combined with a model of RISC Zero's
+  segment padding.
+
+Design choices and their reasons are recorded in
+[docs/design-decisions.md](docs/design-decisions.md).
 
 ## How TraceOpt works
 
@@ -51,20 +74,101 @@ Source (C) → LLVM IR → Program Analysis → Candidate Optimizations
           → Target Compilation (RISC Zero guest) → Evaluation Report
 ```
 
-| Stage | Status |
-|---|---|
-| Source → LLVM IR (`clang`) | Planned |
-| Program analysis (feature extraction) | Implemented on hand-written IR; not yet run on Clang output |
-| Candidate generation (`opt` loop-unroll factors) | Planned (needs LLVM) |
-| Proving-cost estimation | Segment padding model implemented and checked against measurements; per-instruction weights not yet calibrated |
-| Optimization selection | Decision logic implemented and unit-tested; not yet connected to real predictions |
-| Target compilation into a RISC Zero guest | C via GCC works (Phase 0); Clang/IR route not yet tested |
-| Evaluation report (JSON) | Planned |
+| Stage | Module | Status |
+|---|---|---|
+| Source → LLVM IR (`clang`) | — | Planned (LLVM not yet installed) |
+| Program analysis (feature extraction) | `traceopt/ir.py`, `loops.py`, `features.py` | Implemented; tested on hand-written IR only |
+| Dynamic count estimation | `traceopt/frequency.py` | Experimental |
+| Candidate generation (`opt` loop-unroll factors) | — | Planned (needs LLVM) |
+| Proving-cost estimation | `traceopt/segments.py`, `calibrate.py` | Segment model implemented and checked against measurements; per-instruction weights not yet calibrated |
+| Optimization selection | `traceopt/decision.py` | Implemented and unit-tested; not yet fed real predictions |
+| Target compilation into a RISC Zero guest | `backend/risc0/` | C via RISC Zero's GCC works; Clang/IR route not yet tested |
+| Evaluation report (JSON) | `scripts/run_baseline.py` | Baseline only; full reports planned |
 
-Linking a Clang-compiled C kernel into a RISC Zero guest is an assumption that
-has **not yet been verified**. Phase 0 tests it and records the result in
-`docs/feasibility.md`. Module responsibilities are described in
+Linking a Clang-compiled C kernel into a RISC Zero guest has **not yet been
+verified**. Module responsibilities are described in
 [docs/architecture.md](docs/architecture.md).
+
+## Project progress
+
+The work is split into seven phases over about eight weeks. Full task lists
+are in the [development roadmap](docs/development-roadmap.md), and work is
+tracked as [GitHub issues](https://github.com/prakartii/TraceOpt/issues)
+labelled by phase. The percentages below are rough estimates against the
+roadmap checklists, not measurements.
+
+| Phase | Goal | Status | Estimate |
+|---|---|---|---|
+| 0. Feasibility | Toolchain works; a C kernel runs in a RISC Zero guest | In progress: GCC route, metrics, and small proofs done; Clang route and proving memory pending | ~80% |
+| 1. IR analysis and baseline | Analyzer, benchmarks, reproducible baseline | In progress: analyzer, 5 benchmarks, and baseline done; not yet run on real Clang IR | ~75% |
+| 2. Cost model | Calibrated model with reported error | In progress: segment model and fitting code done; no calibration data yet | ~40% |
+| 3. Cost-aware optimization | Pick an unroll factor or keep the baseline | In progress: decision logic and `traceopt decide` done; candidate generation pending | ~35% |
+| 4. Backend integration and reporting | Automated build → run → report | Not started | ~10% |
+| 5. Evaluation | Baseline vs. `-O2`/`-O3` vs. TraceOpt | Not started | 0% |
+| 6. Finalization and demo | Clean setup check, demo, write-up | Not started | 0% |
+
+**Overall: roughly 30–35%.**
+
+**Main blocker:** LLVM/Clang is not installed in the WSL environment (it
+needs `sudo`). It blocks running the analyzer on real IR, generating unroll
+candidates, and collecting calibration data, so most remaining work in
+Phases 0–3 waits on it.
+
+**Next steps:**
+1. Install LLVM and record its version ([#1](https://github.com/prakartii/TraceOpt/issues/1)).
+2. Compile a kernel through Clang → `opt` → RISC-V object and link it into the guest ([#2](https://github.com/prakartii/TraceOpt/issues/2)).
+3. Run `traceopt analyze` on every benchmark ([#10](https://github.com/prakartii/TraceOpt/issues/10)).
+4. Build unroll variants (factors 1, 2, 4, 8), measure them, and fit the model ([#15](https://github.com/prakartii/TraceOpt/issues/15), [#16](https://github.com/prakartii/TraceOpt/issues/16)).
+5. Measure proving time and memory against segment size ([#3](https://github.com/prakartii/TraceOpt/issues/3)).
+
+## Findings so far
+
+All measured in the RISC Zero 3.0.6 executor. Commands and full tables are in
+[docs/feasibility.md](docs/feasibility.md) §4.
+
+- **Total cycles are padded to powers of two.** Each segment's size is
+  rounded up to 2^k, so cutting user cycles lowers proving work only when it
+  crosses a boundary. For example, xorshift at n = 1000 has 12,100 user
+  cycles and 18,635 paging cycles, and is padded to 65,536.
+- **The segment model matches every measured configuration.**
+  `traceopt/segments.py` reproduces the segment count and padded total of all
+  9 measured runs, including runs with smaller segment limits
+  (`tests/test_segments.py`).
+- **Loop overhead is visible and exactly linear.** The xorshift kernel costs
+  `95 + 8n` cycles: 8 cycles per iteration, two of which are loop control.
+  This is the overhead unrolling targets.
+- **Paging depends on memory footprint, not access count.** `strided_rw`
+  pays 61,154 paging cycles whether it makes 0 or 1000 passes over its 64 KiB
+  array; xorshift pays 18,635. The memory feature in the cost model should be
+  distinct pages touched, not memory accesses.
+- **Compilers can delete the loop entirely.** rustc/LLVM replaced a
+  sum-of-squares loop with its closed form, so its cycle count did not grow
+  with n. Benchmarks are designed with loop-carried dependences to avoid this.
+- **Segment size changes paging cost.** The same run pays 18,635 paging
+  cycles with one segment and 31,825 with four (limit 2^18), so variants must
+  be compared at the same segment limit.
+- **Proving memory is the hardware limit.** A 2^15-cycle proof took 7.0 s and
+  peaked at 303 MB. A 2^20-cycle segment was killed after using 7.5 GB, the
+  memory available to WSL on the development machine.
+
+## Benchmarks
+
+Each kernel in `benchmarks/` exports `uint32_t traceopt_kernel(uint32_t n)`
+and has a Python reference in `tests/reference.py`. Baseline numbers below
+are from [results/baseline-gcc.json](results/baseline-gcc.json): compiled
+with RISC Zero's GCC 13.2.0 at `-O2`, default segment limit, 1 segment each.
+Every run matched its reference and was identical across repeats.
+
+| Kernel | What it exercises | Code (bytes) | Kernel cycles, n = 1000 | Padded total, n = 1000 |
+|---|---|---|---|---|
+| `sum_squares` | simple arithmetic loop | 44 | 4,094 | 32,768 |
+| `xorshift` | loop-carried bit operations | 64 | 8,095 | 65,536 |
+| `nested_fnv` | nested loop (n × 16), hashing with multiply | 72 | 67,098 | 131,072 |
+| `branchy` | data-dependent three-way branch | 124 | 14,814 | 65,536 |
+| `strided_rw` | strided reads and writes over a 64 KiB array | 140 | 645,641 | 1,048,576 |
+
+These are GCC baselines for the measurement backend. The planned Clang
+`-O1` / `-O2` / `-O3` / TraceOpt comparison has not been run yet.
 
 ## Cost model (initial proposal)
 
@@ -77,8 +181,12 @@ C(F) = Σᵢ wᵢ·nᵢ(F) + w_M·M(F) + w_B·B(F) + w_L·L(F)
 - `B(F)`: estimated dynamic branch count
 - `L(F)`: lookup/precompile features (omitted for the first backend)
 
-The weights are fitted to measured cycle counts. This is a modeling hypothesis,
-not a validated formula. Precise feature definitions are in
+The weights will be fitted to measured cycle counts by non-negative least
+squares (`traceopt/calibrate.py`), and the error reported on held-out
+benchmarks. The predicted user and paging cycles then go through the segment
+model to give a padded total, which is what candidates are compared on. This
+is a modeling hypothesis, not a validated formula. Precise feature
+definitions are in
 [architecture.md §4](docs/architecture.md#4-cost-model-initial-proposal-not-validated).
 
 TraceOpt keeps these quantities separate and never reports one as another:
@@ -89,55 +197,38 @@ TraceOpt keeps these quantities separate and never reports one as another:
   the hardware and may be unavailable when memory is limited.
 - **Native execution time**: not used as a proxy for proving cost.
 
-## Current status
+### Decision rule
 
-**Implemented (tested):**
-- *Backend:* a RISC Zero host that runs a guest in the executor or the prover
-  and prints JSON with segments and total/user/paging/reserved cycles. A guest
-  calls a C benchmark kernel through FFI and reports the cycles spent inside
-  it. C is currently compiled with RISC Zero's GCC toolchain.
-- *Benchmarks:* five C kernels (`sum_squares`, `xorshift`, `nested_fnv`,
-  `branchy`, `strided_rw`) with Python references, verified natively and in
-  the zkVM, and a baseline runner that records cycles, code size, and
-  toolchain versions.
-- *Analyzer* (`traceopt/`): textual LLVM IR parser, dominators and natural
-  loops, trip counts, instruction classes, and the `traceopt analyze` CLI.
-  Tested on hand-written IR only.
-- *Segment model:* predicts RISC Zero's segment count and padded total cycles.
-  It matches all 9 measured configurations.
+`traceopt/decision.py` keeps the baseline unless a candidate:
 
-**Experimental (implemented, not yet validated on real data):**
-- Dynamic instruction-count estimation (`traceopt/frequency.py`).
-- Least-squares calibration (`traceopt/calibrate.py`) and the cost-aware
-  decision engine (`traceopt/decision.py`). Both are unit-tested on
-  synthetic inputs.
+1. has every prediction it needs,
+2. passed differential testing (same outputs as the baseline),
+3. is at most 4× the baseline's code size, and
+4. has a predicted padded total at least 5% below the baseline's.
 
-Measured results are in [docs/feasibility.md](docs/feasibility.md).
+Among the candidates that qualify, the lowest padded total wins; ties go to
+fewer user cycles, then smaller code. Every candidate gets a row explaining
+why it was or was not chosen.
 
-**Blocked / in progress:**
-- Compiling kernels through Clang → LLVM IR → `opt` → RISC-V object and
-  linking them into the guest. LLVM is not installed yet, and this blocks
-  running the analyzer on real IR, generating unroll candidates, and
-  calibrating the model.
-- Proving with capped segment sizes: a single 2^20-cycle segment exceeded the
-  ~7.6 GB of memory available to WSL.
-
-**Planned:** everything in the pipeline table above. See the
-[development roadmap](docs/development-roadmap.md).
-
-**Known limitations of the planned prototype:**
-- A single backend (RISC Zero) and a single transformation (loop unrolling).
-- C benchmark kernels only. Rust guest code is not optimized by TraceOpt.
-- Correctness is checked by differential testing, not formal equivalence proofs.
-- Proving time may be measurable only for small programs on the development
-  machine (about 7.6 GB of RAM available to WSL).
-- The cost model is calibrated on a small benchmark set and may not generalize.
-
-## Installation and usage
+## Installation
 
 RISC Zero's installer supports x86-64 Linux and arm64 macOS, so on Windows
 the project is developed inside WSL 2 (Ubuntu). The commands below were
-verified on Ubuntu 26.04 in WSL with RISC Zero 3.0.6.
+verified on Ubuntu 26.04 in WSL.
+
+### Verified toolchain
+
+| Tool | Version |
+|---|---|
+| rzup | 0.5.0 |
+| cargo-risczero, r0vm, `risc0-zkvm` | 3.0.6 |
+| RISC Zero guest Rust | 1.97.0 |
+| RISC Zero C/C++ toolchain | 2024.1.5 (GCC 13.2.0, `riscv32-unknown-elf`) |
+| Host Rust | 1.99.0 |
+| Python | 3.10+ (CI: 3.10 and 3.12) |
+| LLVM/Clang | not installed yet |
+
+### Backend (WSL)
 
 ```bash
 # Toolchain
@@ -145,58 +236,89 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profil
 curl -L https://risczero.com/install | bash
 ~/.risc0/bin/rzup install
 
-# Build (first build takes ~15 minutes)
+# Build (first build takes ~15 minutes; uses 4 jobs to stay within memory)
 scripts/build_backend.sh
-
-# Run a guest in the executor: host <execute|prove> <probe|kernel> [n]
-~/.cache/traceopt-target/release/host execute kernel 1000
 ```
 
-Proving (`prove`) works for small inputs. For larger inputs, set
-`TRACEOPT_SEGMENT_PO2` (for example `18`) to cap memory. See
-[docs/feasibility.md](docs/feasibility.md) §5.
-
-The analysis and model components have a command-line interface (Python
-3.10+, standard library only). It does not optimize anything yet: `decide`
-takes predictions you supply, because candidate generation and the calibrated
-model are not connected yet.
+LLVM, needed for the Clang route (not yet tested end to end):
 
 ```bash
-pip install .                     # optional; or use `python -m traceopt`
-traceopt analyze tests/fixtures/xorshift_o1.ll --arg 0=1000   # features (JSON)
-traceopt segments 12100 18635                                 # padded total cycles
-traceopt decide candidates.json                               # cost-aware choice
+sudo apt-get update && sudo apt-get install -y clang llvm lld
 ```
 
-`candidates.json` holds `{"baseline": {...}, "candidates": [...]}`, each entry
-with `name`, `predicted_user_cycles`, `paging_per_segment`, and `code_bytes`.
+### Python tools (any OS)
 
-## Benchmarking and evaluation (planned)
+Standard library only, no dependencies:
 
-Each benchmark kernel will be built three ways:
+```bash
+pip install .            # installs the `traceopt` command
+# or run without installing:
+python -m traceopt --help
+```
 
-1. **Baseline:** `-O1` without loop unrolling.
-2. **Conventional:** `-O2`/`-O3` with LLVM's default unrolling heuristics.
-3. **TraceOpt:** baseline plus the unroll factor TraceOpt selects, or the
-   baseline unchanged if no candidate is predicted to help.
+## Usage
 
-Metrics collected where available: RISC Zero cycles and segments, proving time
-(repeated runs), code size, compile time, peak memory, and cost-model prediction
-error. Each run checks that its outputs match the baseline's. Unavailable
-metrics are recorded as unavailable, not estimated. No results have been
-collected yet.
+### Run a benchmark in the zkVM (WSL)
+
+```bash
+# Build the guest with one benchmark, run it for each n, check against the reference
+scripts/check_kernel.sh nested_fnv 1 100
+
+# Run the most recently built kernel directly: host <execute|prove> <probe|kernel> [n]
+~/.cache/traceopt-target/release/host execute kernel 1000
+
+# Cap the segment size (2^18 cycles)
+TRACEOPT_SEGMENT_PO2=18 ~/.cache/traceopt-target/release/host execute kernel 100000
+```
+
+The host prints JSON with the kernel's output, the cycles spent inside the
+kernel, and the session statistics (segments and total, user, paging, and
+reserved cycles). `prove` works for small inputs; for larger inputs, cap the
+segment size with `TRACEOPT_SEGMENT_PO2` (see
+[docs/feasibility.md](docs/feasibility.md) §5).
+
+### TraceOpt commands
+
+These do not optimize anything yet: `decide` takes predictions you supply,
+because candidate generation and the calibrated model are not connected yet.
+
+```bash
+# Features of an LLVM IR function (JSON). --arg sets loop-bound parameters.
+traceopt analyze tests/fixtures/xorshift_o1.ll --arg 0=1000
+
+# Predicted segments and padded total for user and per-segment paging cycles
+traceopt segments 12100 18635            # → 1 segment, padded total 65536
+traceopt segments 804100 7956 --po2 18   # → 4 segments
+
+# Cost-aware choice among candidates
+traceopt decide candidates.json [--min-improvement 0.05] [--max-code-growth 4] [--po2 20]
+```
+
+`candidates.json` format:
+
+```json
+{
+  "baseline":   {"name": "unroll1", "predicted_user_cycles": 30000, "paging_per_segment": 18635, "code_bytes": 140},
+  "candidates": [{"name": "unroll2", "predicted_user_cycles": 9000, "paging_per_segment": 18635, "code_bytes": 200}]
+}
+```
+
+Use `null` for a prediction that is unavailable; that candidate is then
+never selected.
 
 ## Testing
 
-Unit tests (Python 3.10+, standard library only; run from the repository root):
+Unit tests (69 tests, standard library only; run from the repository root).
+CI runs them on every push:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
 They cover the IR parser, loops and trip counts (cross-checked against
-simulation), instruction classes, frequency estimates, the CLI, the segment
-model (against measured data), calibration, and decision logic.
+simulation over more than 1,000 cases), instruction classes, frequency
+estimates, the CLI, the segment model (against measured data), calibration,
+and the decision logic.
 
 zkVM checks (inside WSL, after building):
 
@@ -205,6 +327,16 @@ scripts/smoke_test.sh                     # probe and kernel guests vs. referenc
 scripts/check_kernel.sh nested_fnv 1 100  # one benchmark in the zkVM
 python3 scripts/run_baseline.py --out results/baseline-gcc.json
 ```
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Pipeline, modules, cost-model features, predicted vs. measured quantities |
+| [docs/feasibility.md](docs/feasibility.md) | Phase 0 environment, commands, measurements, and blockers |
+| [docs/design-decisions.md](docs/design-decisions.md) | Why RISC Zero, C kernels via FFI, Python over textual IR, LLVM's unroller |
+| [docs/development-roadmap.md](docs/development-roadmap.md) | Phases 0–6, tasks, dependencies, risks, work split |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit conventions, rules for reporting results |
 
 ## Repository structure
 
@@ -228,11 +360,12 @@ TraceOpt/
 │   ├── development-roadmap.md
 │   └── feasibility.md      Phase 0 measurements and blockers
 ├── results/                curated measurement outputs (JSON)
+│   └── baseline-gcc.json   GCC baseline for all five benchmarks
 ├── scripts/
-│   ├── build_backend.sh
-│   ├── check_kernel.sh
-│   ├── run_baseline.py
-│   └── smoke_test.sh
+│   ├── build_backend.sh    builds the backend in WSL
+│   ├── check_kernel.sh     runs one benchmark and checks its output
+│   ├── run_baseline.py     measures all benchmarks, writes JSON
+│   └── smoke_test.sh       end-to-end backend checks
 ├── tests/                  unit tests, IR fixtures, kernel references
 └── traceopt/               Python package
     ├── ir.py               textual LLVM IR parser
@@ -245,12 +378,23 @@ TraceOpt/
     └── cli.py              `traceopt analyze | segments | decide`
 ```
 
-## Limitations and future work
+## Limitations
 
-Beyond the limitations listed above: support for additional zkVMs (for example
-SP1), more transformations (such as inlining and strength reduction), and
-cost models that account for target-specific precompiles are possible future
-work. None of these is part of the current plan.
+- A single backend (RISC Zero) and a single transformation (loop unrolling).
+- C benchmark kernels only. Rust guest code is not optimized by TraceOpt.
+- The IR parser handles the subset of LLVM IR the benchmarks need and rejects
+  `switch`, `invoke`, and other constructs it does not model.
+- Correctness is checked by differential testing, not formal equivalence proofs.
+- Proving time may be measurable only for small programs on the development
+  machine (about 7.6 GB of RAM available to WSL).
+- The cost model will be calibrated on a small benchmark set and may not
+  generalize.
+- `env::cycle_count()`, used to measure kernel cycles, is reported by the host
+  and not constrained by the proof. It is a measurement aid, not a proven value.
+
+**Future work** (not part of the current plan): other zkVMs such as SP1, more
+transformations (inlining, strength reduction), and cost models that account
+for precompiles.
 
 ## Contributors
 
