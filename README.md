@@ -404,9 +404,7 @@ python3 scripts/run_baseline.py --out results/baseline-gcc.json
 
 ```
 TraceOpt/
-├── .github/workflows/      CI: unit tests on Python 3.10 and 3.12
-├── .gitattributes
-├── .gitignore
+├── .github/workflows/      CI: unit tests (Python 3.10, 3.12) and LLVM tests
 ├── CONTRIBUTING.md
 ├── README.md
 ├── pyproject.toml          package metadata and `traceopt` command
@@ -418,26 +416,53 @@ TraceOpt/
 ├── benchmarks/             C kernels exporting traceopt_kernel(uint32_t)
 ├── docs/
 │   ├── architecture.md
+│   ├── cost-model.md       calibration and model accuracy
 │   ├── design-decisions.md
 │   ├── development-roadmap.md
+│   ├── experiments.md      evaluation results
 │   └── feasibility.md      Phase 0 measurements and blockers
+├── examples/
+│   └── candidates.json     input for `traceopt decide`
 ├── results/                curated measurement outputs (JSON)
-│   └── baseline-gcc.json   GCC baseline for all five benchmarks
+│   ├── baseline-gcc.json           GCC baseline, all five benchmarks
+│   ├── variants-clang21.json       calibration measurements (64 variants)
+│   ├── variants-clang21-u8-rerun.json  re-measured unroll=8 records
+│   ├── fit-clang21.json            fit report (static features)
+│   ├── fit-clang21-exact.json      fit report (exact interpreter counts)
+│   ├── model-clang21.json          the cost model `traceopt optimize` uses
+│   └── evaluation-clang21.json     baseline / -O2 / TraceOpt evaluation
 ├── scripts/
-│   ├── build_backend.sh    builds the backend in WSL
+│   ├── build_backend.sh    builds the backend (TRACEOPT_GUEST_ONLY=1: guest only)
 │   ├── check_kernel.sh     runs one benchmark and checks its output
-│   ├── run_baseline.py     measures all benchmarks, writes JSON
+│   ├── compile_kernel.sh   C -> IR -> unroll -> RISC-V object
+│   ├── crosscheck_loops.py analyzer loops vs. LLVM LoopInfo
+│   ├── demo.sh             one-command demonstration
+│   ├── evaluate.py         baseline / -O2 / TraceOpt comparison
+│   ├── fit_model.py        fits the cost model, reports held-out error
+│   ├── install_llvm_user.sh  LLVM without sudo
+│   ├── llvm_env.sh         puts LLVM on PATH
+│   ├── merge_results.py    replaces re-measured records
+│   ├── run_baseline.py     GCC baseline measurements
+│   ├── run_variants.py     calibration measurements
 │   └── smoke_test.sh       end-to-end backend checks
-├── tests/                  unit tests, IR fixtures, kernel references
+├── tests/                  unit tests, IR fixtures (tests/fixtures/clang21), references
 └── traceopt/               Python package
     ├── ir.py               textual LLVM IR parser
     ├── loops.py            dominators, natural loops, trip counts
+    ├── evaluate.py         values computed from known arguments
     ├── features.py         instruction classes and static counts
     ├── frequency.py        block frequencies, dynamic counts
+    ├── footprint.py        data pages touched (paging feature)
+    ├── interp.py           IR interpreter (ground truth for the analyzer)
     ├── segments.py         RISC Zero segment and padding model
     ├── calibrate.py        least-squares fit, held-out error
+    ├── model.py            the calibrated cost model
     ├── decision.py         cost-aware candidate selection
-    └── cli.py              `traceopt analyze | segments | decide`
+    ├── toolchain.py        clang / opt / llc wrapper
+    ├── optimize.py         candidate generation, prediction, selection
+    ├── backend.py          build and run the RISC Zero guest
+    ├── report.py           predictions next to measurements
+    └── cli.py              `traceopt optimize | analyze | profile | segments | decide`
 ```
 
 ## Limitations
