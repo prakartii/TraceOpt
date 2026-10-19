@@ -203,7 +203,8 @@ TraceOpt keeps these quantities separate and never reports one as another:
 
 1. has every prediction it needs,
 2. passed differential testing (same outputs as the baseline),
-3. is at most 4× the baseline's code size, and
+3. is at most 16× the baseline's code size (a loose safety limit; extra
+   1 KiB code pages are charged as paging in the prediction), and
 4. has a predicted padded total at least 5% below the baseline's.
 
 Among the candidates that qualify, the lowest padded total wins; ties go to

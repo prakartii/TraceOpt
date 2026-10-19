@@ -25,7 +25,9 @@ class Candidate:
 @dataclass(frozen=True)
 class Policy:
     min_improvement: float = 0.05     # fraction of the baseline's padded total
-    max_code_growth: float = 4.0      # candidate code bytes / baseline code bytes
+    # Candidate code bytes / baseline code bytes. A loose safety limit: the
+    # cost of code growth itself is predicted as paging (traceopt/optimize.py).
+    max_code_growth: float = 16.0
     segment_limit_po2: int = DEFAULT_SEGMENT_LIMIT_PO2
 
 

@@ -41,7 +41,7 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(d.rows[1].note, "improvement below threshold")
 
     def test_code_size_limit(self):
-        d = decide(BASE, [cand("unroll8", 8000, code=1000)])
+        d = decide(BASE, [cand("unroll8", 8000, code=16 * 140 + 1)])
         self.assertEqual(d.selected, "unroll1")
         self.assertIn("exceeds limit", d.rows[1].note)
 
