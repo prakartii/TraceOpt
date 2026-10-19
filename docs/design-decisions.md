@@ -54,3 +54,42 @@ the context, the decision, and what would make us revisit it.
 - **Decision:** Candidates are produced with `opt` and LLVM's `loop-unroll`
   pass at explicit factors. Legality is LLVM's responsibility. Correctness is
   checked by differential tests.
+
+## D5. Baseline IR keeps loops unrollable (Phase 3)
+
+- **Context:** `-fno-unroll-loops` stops Clang's pipeline from unrolling, but
+  it also tags every loop with `llvm.loop.unroll.disable`, which `opt`
+  honors, so no candidate could be generated from that IR. Without the flag,
+  Clang's `-O1` pipeline may unroll on its own and the baseline would not be
+  "factor 1".
+- **Decision:** Compile with `-fno-unroll-loops`, then rename the metadata
+  string to an unknown loop property (`traceopt.unroll.cleared`), which LLVM
+  ignores. Candidates are generated with an explicit `-unroll-count` and a
+  high `-unroll-threshold`, because without it `opt` silently lowers large
+  counts (found when a requested factor 8 produced a different variant).
+- **Consequence:** Factor 1 is exactly the baseline. Variants whose code is
+  identical to a smaller factor's are reported as duplicates, not candidates.
+
+## D6. An IR interpreter is the ground truth for the analyzer (Phase 1)
+
+- **Context:** The static frequency estimates needed an independent check.
+  Instrumented native builds would need a profiling runtime that is not
+  installed, and comparing with zkVM cycles mixes in the model's error.
+- **Decision:** `traceopt/interp.py` executes the IR subset the kernels use
+  and counts block executions. Its return values are checked against the
+  Python references, and the static estimates are compared with its counts
+  block by block.
+- **Consequence:** Estimates are exact for every kernel whose control flow
+  depends only on n, unrolled or not; branchy's data-dependent branches are
+  the known exception. The interpreter is slow (seconds for strided_rw at
+  n = 1000), so it is used for validation and calibration, not in the
+  zkVM measurement loop.
+
+## D7. Code growth is costed as paging, not capped (Phase 3)
+
+- **Context:** A fixed "at most 4x the baseline's code size" rule rejected a
+  52 B → 216 B kernel that still fits in one 1 KiB page, so it cost nothing
+  extra in the zkVM.
+- **Decision:** A candidate whose code needs more 1 KiB pages than the
+  baseline is charged the fitted per-page paging cost for each extra page.
+  The relative limit remains as a loose safety bound (16x).
