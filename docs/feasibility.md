@@ -12,7 +12,7 @@ described in §1. Items not yet tested are listed in §6.
 | Host Rust | rustc 1.99.0, cargo 1.99.0 |
 | RISC Zero | rzup 0.5.0; cargo-risczero 3.0.6; r0vm 3.0.6; guest Rust toolchain 1.97.0; C++ toolchain 2024.1.5 (GCC) |
 | Crates | `risc0-zkvm = "=3.0.6"`, `risc0-build = "=3.0.6"` |
-| LLVM/Clang | **not installed yet** (Ubuntu candidate: 21.1.6; needs `sudo`) |
+| LLVM/Clang | Ubuntu clang/LLVM/LLD **21.1.8**, unpacked into `~/.local/llvm` without `sudo` (see §2) |
 
 RISC Zero's installer supports x86-64 Linux and arm64 macOS only, so all
 toolchain work runs in WSL.
@@ -25,6 +25,20 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profil
 curl -L https://risczero.com/install | bash
 ~/.risc0/bin/rzup install        # installs cargo-risczero, r0vm, rust, cpp
 ```
+
+LLVM: `sudo` needs a password in this environment, so Ubuntu's
+`clang-21`, `llvm-21`, and `lld-21` packages and their missing dependencies
+were downloaded with `apt-get download` and unpacked with `dpkg -x` (no
+package scripts run). `libllvm21` was already installed system-wide.
+
+```bash
+scripts/install_llvm_user.sh       # ~47 MB download; installs into ~/.local/llvm
+source scripts/llvm_env.sh         # puts clang, opt, llc, ld.lld on PATH
+clang --version                    # Ubuntu clang version 21.1.8 (6ubuntu1)
+```
+
+`llc --version` lists the `riscv32` target, and Clang emits IR for
+`--target=riscv32-unknown-elf -march=rv32im -mabi=ilp32`.
 
 ## 3. Building the backend (verified)
 
