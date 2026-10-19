@@ -31,6 +31,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from traceopt import __version__
 from traceopt.decision import Candidate, Policy, decide
 from traceopt.features import CLASSES, static_counts
 from traceopt.footprint import footprint
@@ -147,6 +148,7 @@ def decide_file(path: Path, policy: Policy) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceopt")
+    parser.add_argument("--version", action="version", version=f"traceopt {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("optimize", help="choose an unroll factor for a C kernel")
     p.add_argument("file", type=Path)

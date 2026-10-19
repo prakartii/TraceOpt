@@ -17,6 +17,21 @@ def run(*argv):
     return code, out.getvalue(), err.getvalue()
 
 
+class VersionTest(unittest.TestCase):
+    def test_version_matches_pyproject(self):
+        import re
+
+        import traceopt
+
+        pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
+        self.assertEqual(re.search(r'^version = "(.+)"', pyproject, re.M).group(1),
+                         traceopt.__version__)
+        with self.assertRaises(SystemExit) as cm,                 contextlib.redirect_stdout(io.StringIO()) as out:
+            main(["--version"])
+        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(out.getvalue().strip(), f"traceopt {traceopt.__version__}")
+
+
 class AnalyzeCliTest(unittest.TestCase):
     def test_with_argument(self):
         code, out, _ = run("analyze", str(FIXTURE), "--arg", "0=1000")
