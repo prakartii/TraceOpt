@@ -105,7 +105,9 @@ def find_loops(fn: Function) -> list[Loop]:
 # --- Trip counts -------------------------------------------------------------
 
 _BR_COND_RE = re.compile(r"^br\s+i1\s+(%\S+),\s*label\s+%(\S+),\s*label\s+%([^,\s]+)")
-_ICMP_RE = re.compile(r"^icmp\s+(\w+)\s+i\d+\s+([^,]+),\s*(\S+)")
+# `samesign` (LLVM 20+) asserts both operands have the same sign, which makes
+# the signed and unsigned predicates agree; it does not change the result.
+_ICMP_RE = re.compile(r"^icmp\s+(?:samesign\s+)?(\w+)\s+i\d+\s+([^,]+),\s*(\S+)")
 _PHI_INCOMING_RE = re.compile(r"\[\s*([^,\]]+),\s*%([^\s\]]+)\s*\]")
 _ADD_RE = re.compile(r"^add\s+(?:(?:nuw|nsw)\s+)*i\d+\s+([^,]+),\s*(\S+)")
 

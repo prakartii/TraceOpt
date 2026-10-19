@@ -118,6 +118,26 @@ exit:
         (loop,) = find_loops(fn)
         self.assertIsNone(trip_count(fn, loop, {"n": 10, "s": 1}))
 
+    def test_samesign_flag_and_pre_increment_compare(self):
+        # Inner loop of strided_rw as emitted by Clang 21: the exit test uses
+        # the induction value before the increment, with `icmp samesign`.
+        src = """
+define void @f() {
+entry:
+  br label %loop
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  %i.next = add nuw nsw i32 %i, 256
+  %c = icmp samesign ult i32 %i, 16128
+  br i1 %c, label %loop, label %exit
+exit:
+  ret void
+}
+"""
+        fn = parse_module(src).functions["f"]
+        (loop,) = find_loops(fn)
+        self.assertEqual(trip_count(fn, loop), 64)  # i = 0, 256, ..., 16128
+
 
 class TripCountNestedTest(unittest.TestCase):
     def test_nested(self):
