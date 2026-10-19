@@ -7,6 +7,7 @@ Skipped unless clang, opt, llc and llvm-nm are on PATH
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from traceopt import toolchain
 from traceopt.frequency import block_frequencies
@@ -86,6 +87,25 @@ class ToolchainTest(unittest.TestCase):
     def test_versions(self):
         v = toolchain.tool_versions()
         self.assertIn("version", v["clang"])
+
+
+class ToolErrorTest(unittest.TestCase):
+    """Runs without LLVM: the tools are mocked."""
+
+    def test_missing_tool(self):
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError):
+            with self.assertRaisesRegex(toolchain.ToolError, "not found on PATH"):
+                toolchain.codegen(Path("x.ll"), Path("x.o"))
+
+    def test_failing_tool_reports_stderr(self):
+        failed = mock.Mock(returncode=1, stderr="error: bad IR", stdout="")
+        with mock.patch("subprocess.run", return_value=failed):
+            with self.assertRaisesRegex(toolchain.ToolError, "bad IR"):
+                toolchain.codegen(Path("x.ll"), Path("x.o"))
+
+    def test_invalid_factor(self):
+        with self.assertRaises(ValueError):
+            toolchain.unroll(Path("base.ll"), 0, Path("u0.ll"))
 
 
 if __name__ == "__main__":
