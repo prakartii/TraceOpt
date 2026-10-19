@@ -279,12 +279,16 @@ segment size with `TRACEOPT_SEGMENT_PO2` (see
 
 ### TraceOpt commands
 
-These do not optimize anything yet: `decide` takes predictions you supply,
-because candidate generation and the calibrated model are not connected yet.
-
 ```bash
+# Choose an unroll factor for a C kernel (needs LLVM on PATH and a fitted model)
+source scripts/llvm_env.sh
+traceopt optimize benchmarks/xorshift.c --model results/model-clang21.json --arg 0=1000
+
 # Features of an LLVM IR function (JSON). --arg sets loop-bound parameters.
-traceopt analyze tests/fixtures/xorshift_o1.ll --arg 0=1000
+traceopt analyze tests/fixtures/clang21/xorshift.ll --arg 0=1000
+
+# Exact counts from the IR interpreter, next to the static estimate
+traceopt profile tests/fixtures/clang21/branchy.ll --arg 0=100
 
 # Predicted segments and padded total for user and per-segment paging cycles
 traceopt segments 12100 18635            # → 1 segment, padded total 65536
