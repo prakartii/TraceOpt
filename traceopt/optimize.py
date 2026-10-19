@@ -14,7 +14,7 @@ from pathlib import Path
 
 from traceopt import toolchain
 from traceopt.decision import Candidate, Decision, Policy, decide
-from traceopt.footprint import footprint
+from traceopt.footprint import PAGE_BYTES, footprint
 from traceopt.frequency import UnknownTripCount, dynamic_counts
 from traceopt.interp import InterpError, Interpreter
 from traceopt.ir import parse_module
@@ -107,13 +107,21 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
                                 footprint(text, FUNCTION).data_pages, kernel, why,
                                 inputs, diff))
 
+    baseline = next(v for v in variants if v.factor == 1)
+
+    def code_pages(v: Variant) -> int:
+        return -(-v.code_bytes // PAGE_BYTES)
+
     def candidate(v: Variant) -> Candidate:
         user = None if v.predicted_kernel_cycles is None else round(
             v.predicted_kernel_cycles + model.guest_overhead)
-        return Candidate(v.name, user, round(model.paging_cycles(v.data_pages)),
+        # The fitted paging cost already covers the baseline's code; code
+        # that needs more 1 KiB pages pays the per-page cost for each extra
+        # page. (Approximate: it ignores where the code lands in a page.)
+        pages = v.data_pages + max(0, code_pages(v) - code_pages(baseline))
+        return Candidate(v.name, user, round(model.paging_cycles(pages)),
                          v.code_bytes, v.differential_failure is None)
 
-    baseline = next(v for v in variants if v.factor == 1)
     decision = decide(candidate(baseline), [candidate(v) for v in variants if v.factor != 1],
                       policy)
     return Result(source, args, variants, decision)

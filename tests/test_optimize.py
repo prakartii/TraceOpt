@@ -12,6 +12,7 @@ from traceopt import toolchain
 from traceopt.decision import Policy
 from traceopt.model import CostModel
 from traceopt.optimize import optimize
+from traceopt.segments import padded_total_cycles
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL = CostModel(intercept=94.0, weights={"alu": 1.0, "cond_branch": 1.0},
@@ -59,6 +60,18 @@ class OptimizeTest(unittest.TestCase):
         result = self.run_opt(1000)
         kernel = [v.predicted_kernel_cycles for v in result.variants]
         self.assertEqual(kernel, sorted(kernel, reverse=True))
+
+    def test_extra_code_pages_are_charged(self):
+        # Unrolling xorshift by 64 needs more than one 1 KiB page of code.
+        result = optimize(ROOT / "benchmarks" / "xorshift.c", {"0": 1000}, MODEL, self.work,
+                          factors=(1, 64), policy=Policy(max_code_growth=1000))
+        big = next(v for v in result.variants if v.factor == 64)
+        extra = -(-big.code_bytes // 1024) - 1
+        self.assertGreater(extra, 0)
+        row = next(r for r in result.decision.rows if r.name == "unroll64")
+        expected = padded_total_cycles(row.predicted_user_cycles,
+                                       round(MODEL.paging_cycles(extra)))
+        self.assertEqual(row.padded_total, expected)
 
     def test_baseline_factor_required(self):
         with self.assertRaises(ValueError):
