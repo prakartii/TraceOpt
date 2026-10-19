@@ -1,12 +1,16 @@
 """Command-line interface.
 
     python -m traceopt analyze <file.ll> [--function NAME] [--arg NAME=VALUE ...]
+    python -m traceopt profile <file.ll> [--function NAME] --arg NAME=VALUE ...
     python -m traceopt segments <user_cycles> <paging_per_segment> [--po2 L]
     python -m traceopt decide <candidates.json> [--po2 L] [--min-improvement F]
                               [--max-code-growth F]
 
 `decide` reads {"baseline": {...}, "candidates": [{...}, ...]}, where each
 entry has the fields of traceopt.decision.Candidate, and prints the decision.
+
+`profile` runs the function in the IR interpreter and prints exact block
+and instruction-class counts next to the static estimates.
 
 `analyze` prints a JSON feature vector. Dynamic counts need every loop's trip count;
 pass loop-bound parameters with --arg (e.g. --arg 0=1000 for `i32 %0`).
@@ -22,7 +26,8 @@ from pathlib import Path
 
 from traceopt.decision import Candidate, Policy, decide
 from traceopt.features import CLASSES, static_counts
-from traceopt.frequency import UnknownTripCount, dynamic_counts
+from traceopt.frequency import UnknownTripCount, counts_from_frequencies, dynamic_counts
+from traceopt.interp import InterpError, Interpreter
 from traceopt.ir import UnsupportedIR, parse_module
 from traceopt.loops import find_loops, trip_count
 from traceopt.segments import DEFAULT_SEGMENT_LIMIT_PO2, padded_total_cycles, segment_po2s
@@ -70,6 +75,33 @@ def analyze(path: Path, function: str, args: dict[str, int]) -> dict:
     return report
 
 
+def profile(path: Path, function: str, args: dict[str, int]) -> dict:
+    interp = Interpreter(path.read_text())
+    if function not in interp.module.functions:
+        raise KeyError(f"function {function!r} not found in {path}")
+    fn = interp.module.functions[function]
+    missing = [p for p in fn.params if p not in args]
+    if missing:
+        raise ValueError(f"profile needs a value for every parameter; missing {missing}")
+    result, counts = interp.run(function, args)
+    exact = counts_from_frequencies(fn, counts)
+    report: dict = {
+        "file": str(path),
+        "function": fn.name,
+        "args": args,
+        "result": result,
+        "block_counts": {b.label: counts.get(b.label, 0) for b in fn.blocks},
+        "dynamic_counts": {c: exact[c] for c in CLASSES},
+    }
+    try:
+        est = dynamic_counts(fn, args)
+        report["estimated_dynamic_counts"] = {c: est[c] for c in CLASSES}
+    except UnknownTripCount as e:
+        report["estimated_dynamic_counts"] = None
+        report["estimated_dynamic_counts_unavailable"] = str(e)
+    return report
+
+
 def segments(user_cycles: int, paging_per_segment: int, limit_po2: int) -> dict:
     po2s = segment_po2s(user_cycles, paging_per_segment, limit_po2)
     return {
@@ -108,6 +140,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--function", default="traceopt_kernel")
     p.add_argument("--arg", type=_parse_arg, action="append", default=[],
                    help="value of a function parameter, NAME=VALUE")
+    p = sub.add_parser("profile", help="exact counts from the IR interpreter")
+    p.add_argument("file", type=Path)
+    p.add_argument("--function", default="traceopt_kernel")
+    p.add_argument("--arg", type=_parse_arg, action="append", default=[],
+                   help="value of a function parameter, NAME=VALUE")
     p = sub.add_parser("segments", help="predict RISC Zero segments and padded cycles")
     p.add_argument("user_cycles", type=int)
     p.add_argument("paging_per_segment", type=int)
@@ -123,12 +160,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if ns.command == "segments":
             report = segments(ns.user_cycles, ns.paging_per_segment, ns.po2)
+        elif ns.command == "profile":
+            report = profile(ns.file, ns.function, dict(ns.arg))
         elif ns.command == "decide":
             policy = Policy(ns.min_improvement, ns.max_code_growth, ns.po2)
             report = decide_file(ns.file, policy)
         else:
             report = analyze(ns.file, ns.function, dict(ns.arg))
-    except (OSError, KeyError, ValueError, UnsupportedIR) as e:
+    except (OSError, KeyError, ValueError, UnsupportedIR, InterpError) as e:
         print(f"traceopt: error: {e}", file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2))
