@@ -2,7 +2,7 @@
 
     python -m traceopt optimize <kernel.c> --model MODEL.json --arg 0=N [--work DIR]
                                 [--factors K ...] [--po2 L] [--min-improvement F]
-                                [--max-code-growth F]
+                                [--max-code-growth F] [--measure]
     python -m traceopt analyze <file.ll> [--function NAME] [--arg NAME=VALUE ...]
     python -m traceopt profile <file.ll> [--function NAME] --arg NAME=VALUE ...
     python -m traceopt segments <user_cycles> <paging_per_segment> [--po2 L]
@@ -14,7 +14,10 @@ entry has the fields of traceopt.decision.Candidate, and prints the decision.
 
 `optimize` needs clang, opt, llc, and llvm-nm on PATH (scripts/llvm_env.sh).
 It prints the decision, every candidate's prediction, and the path of the
-selected RISC-V object, which can be linked with TRACEOPT_KERNEL_OBJ.
+selected RISC-V object, which can be linked with TRACEOPT_KERNEL_OBJ. With
+--measure (inside WSL, after building the backend once) it also links the
+baseline and the selected variant into the guest, executes them, and reports
+predicted vs measured cycles.
 
 `profile` runs the function in the IR interpreter and prints exact block
 and instruction-class counts next to the static estimates.
@@ -116,6 +119,28 @@ def profile(path: Path, function: str, args: dict[str, int]) -> dict:
     return report
 
 
+def measure(result, policy: Policy) -> list[dict]:
+    """Execute the baseline and the selected variant; predicted vs measured."""
+    from traceopt import backend
+    from traceopt.report import compare
+
+    n = result.args.get("0")
+    if n is None:
+        raise ValueError("--measure needs --arg 0=N")
+    rows = {r.name: r for r in result.decision.rows}
+    names = ["unroll1"] + ([result.decision.selected]
+                           if result.decision.selected != "unroll1" else [])
+    out = []
+    for name in names:
+        variant = next(v for v in result.variants if v.name == name)
+        backend.build(obj=variant.obj, guest_only=True)
+        po2 = (policy.segment_limit_po2
+               if policy.segment_limit_po2 != DEFAULT_SEGMENT_LIMIT_PO2 else None)
+        run = backend.execute(n, po2, kernel_elf=backend.KERNEL_BIN)
+        out.append({**compare(rows[name], run), "output": run["result"]["output"]})
+    return out
+
+
 def segments(user_cycles: int, paging_per_segment: int, limit_po2: int) -> dict:
     po2s = segment_po2s(user_cycles, paging_per_segment, limit_po2)
     return {
@@ -161,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2)
     p.add_argument("--min-improvement", type=float, default=Policy.min_improvement)
     p.add_argument("--max-code-growth", type=float, default=Policy.max_code_growth)
+    p.add_argument("--measure", action="store_true",
+                   help="build and execute the baseline and the selected variant")
     p = sub.add_parser("analyze", help="extract features from an LLVM IR file")
     p.add_argument("file", type=Path)
     p.add_argument("--function", default="traceopt_kernel")
@@ -195,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
             result = optimize.optimize(ns.file, dict(ns.arg), CostModel.load(ns.model),
                                        ns.work, tuple(ns.factors), policy)
             report = result.to_dict()
+            if ns.measure:
+                report["measurements"] = measure(result, policy)
         elif ns.command == "profile":
             report = profile(ns.file, ns.function, dict(ns.arg))
         elif ns.command == "decide":
