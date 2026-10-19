@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from traceopt.features import CLASSES
+from traceopt.model import CostModel
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "fit_model.py"
 
@@ -20,21 +21,26 @@ def synthetic_results():
                 d.update(alu=7.0 * n + bi * n, cond_branch=n / k + 1, cmp=n / k + 1,
                          mul=float((bi % 2) * n), jump=float(k))
                 cycles = 90 + d["alu"] + 2 * d["mul"] + 3 * d["cond_branch"] + 0.5 * d["jump"]
+                pages = 64 if bench == "c" else 0
                 records.append({"benchmark": bench, "unroll_factor": k, "n": n,
                                 "output_matches_reference": True,
-                                "kernel_cycles": cycles, "dynamic_counts": d})
+                                "kernel_cycles": cycles, "user_cycles": cycles + 4005,
+                                "data_pages": pages, "paging_cycles": 18635 + 664 * pages,
+                                "dynamic_counts": d})
     return {"records": records}
 
 
 class FitModelScriptTest(unittest.TestCase):
-    def run_script(self, data):
+    def run_script(self, data, output="fit"):
         with tempfile.TemporaryDirectory() as d:
-            src, out = Path(d) / "results.json", Path(d) / "model.json"
+            src = Path(d) / "results.json"
+            fit_out, model_out = Path(d) / "fit.json", Path(d) / "model.json"
             src.write_text(json.dumps(data))
-            proc = subprocess.run([sys.executable, str(SCRIPT), str(src), "--out", str(out)],
+            proc = subprocess.run([sys.executable, str(SCRIPT), str(src), "--out", str(fit_out),
+                                   "--model-out", str(model_out)],
                                   capture_output=True, text=True)
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            return json.loads(out.read_text())
+            return json.loads((fit_out if output == "fit" else model_out).read_text())
 
     def test_recovers_weights_and_drops_duplicate_feature(self):
         model = self.run_script(synthetic_results())
@@ -56,6 +62,14 @@ class FitModelScriptTest(unittest.TestCase):
         data["records"][0]["output_matches_reference"] = False
         data["records"][0]["kernel_cycles"] = 1e9
         self.assertEqual(self.run_script(data)["observations"], 26)
+
+    def test_cost_model_output(self):
+        model = CostModel(**self.run_script(synthetic_results(), output="model"))
+        self.assertAlmostEqual(model.guest_overhead, 4005.0)
+        self.assertAlmostEqual(model.paging_base, 18635.0, places=6)
+        self.assertAlmostEqual(model.paging_per_page, 664.0, places=6)
+        self.assertAlmostEqual(model.weights["mul"], 2.0, places=6)
+        self.assertEqual(model.source["observations"], 27)
 
 
 if __name__ == "__main__":
