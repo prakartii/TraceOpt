@@ -147,6 +147,30 @@ segment:
 | kernel, n = 100000 (1 segment, 2^20) | **Killed by the kernel OOM killer** at 7.5 GB anon RSS |
 | kernel, n = 100000, `TRACEOPT_SEGMENT_PO2=18` | Not yet run |
 
+### 4.7 A Clang/LLVM-compiled kernel can be linked into a guest (verified)
+
+`benchmarks/xorshift.c` compiled with `scripts/compile_kernel.sh` (Clang
+21.1.8 `-O1 -fno-unroll-loops` → `llc -O2`, rv32im / ILP32, ELF flags 0x0)
+and linked through `TRACEOPT_KERNEL_OBJ`:
+
+```bash
+scripts/compile_kernel.sh benchmarks/xorshift.c /tmp/k 1
+TRACEOPT_KERNEL_OBJ=/tmp/k/u1.o scripts/build_backend.sh   # 3 min 57 s incremental
+~/.cache/traceopt-target/release/host execute kernel <n>
+```
+
+| n | output (matches reference) | kernel cycles | user cycles | total cycles |
+|---|---|---|---|---|
+| 0 | 2463534242 | 94 | 4099 | 32768 |
+| 1 | 723471715 | 102 | 4107 | 32768 |
+| 10 | 2653896249 | 174 | 4179 | 32768 |
+| 1000 | 3298996588 | 8094 | 12099 | 65536 |
+
+Kernel cycles are `94 + 8n`, one cycle less than the GCC build (`95 + 8n`,
+§4.2); the loop body is the same 8 cycles. The kernel is 52 bytes (GCC: 64).
+Paging cycles (18635) are unchanged. This removes the main Phase 0 risk: the
+IR route TraceOpt depends on works end to end.
+
 ## 5. Blockers and constraints
 
 1. **Prover memory.** Proving a 2^20-cycle segment does not fit in ~7.6 GB.
@@ -155,16 +179,12 @@ segment:
    cap segments (`TRACEOPT_SEGMENT_PO2`) and measure peak memory per po2;
    use cycle counts as the primary metric; raise the WSL memory limit only if
    proving time is required for larger segments.
-2. **LLVM/Clang not installed.** Needs `sudo apt-get install clang llvm lld`
-   in WSL. Blocks the IR route (§6).
+2. ~~LLVM/Clang not installed.~~ Resolved: installed without `sudo` (§2),
+   and the IR route works (§4.7).
 3. **Closed-form folding.** See §4.1; affects benchmark design.
 
 ## 6. Not yet tested
 
-- Clang route: `clang -emit-llvm` → `opt` (loop-unroll) → `llc` for
-  `riscv32`/`rv32im`/ILP32 → link via `TRACEOPT_KERNEL_OBJ`. RISC Zero's build
-  documents `CC_riscv32im_risc0_zkvm_elf` / `CFLAGS_riscv32im_risc0_zkvm_elf`
-  as an override for the C compiler, but no Clang build has been run yet.
 - Proving with capped segments, and peak memory per segment po2.
 - Code-size measurement of the linked kernel.
 
