@@ -35,8 +35,9 @@ rm "$OUT/base.tmp.ll"
 if [[ "$K" == 1 ]]; then
   cp "$OUT/base.ll" "$OUT/u1.ll"
 else
+  # A high threshold stops opt from silently lowering large counts.
   opt -S -passes=loop-unroll -unroll-count="$K" -unroll-runtime \
-      "$OUT/base.ll" -o "$OUT/u$K.ll"
+      -unroll-threshold=1000000 "$OUT/base.ll" -o "$OUT/u$K.ll"
 fi
 
 llc -O2 -mattr=+m -target-abi=ilp32 -filetype=obj "$OUT/u$K.ll" -o "$OUT/u$K.o"

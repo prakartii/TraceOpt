@@ -22,6 +22,7 @@ TARGET = ["--target=riscv32-unknown-elf", "-march=rv32im", "-mabi=ilp32"]
 # honor; renaming it leaves an unknown loop property that LLVM ignores.
 _DISABLE = "llvm.loop.unroll.disable"
 _CLEARED = "traceopt.unroll.cleared"
+UNROLL_THRESHOLD = 1_000_000
 
 
 class ToolError(RuntimeError):
@@ -60,8 +61,11 @@ def unroll(base: Path, factor: int, out: Path) -> Path:
     if factor == 1:
         out.write_text(base.read_text(), newline="\n")
         return out
+    # Without a high -unroll-threshold, opt silently lowers large counts
+    # (e.g. 32 becomes 8 for xorshift), so the variant would be mislabeled.
     _run(["opt", "-S", "-passes=loop-unroll", f"-unroll-count={factor}",
-          "-unroll-runtime", str(base), "-o", str(out)])
+          "-unroll-runtime", f"-unroll-threshold={UNROLL_THRESHOLD}",
+          str(base), "-o", str(out)])
     return out
 
 

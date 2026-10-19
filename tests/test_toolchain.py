@@ -40,7 +40,7 @@ class ToolchainTest(unittest.TestCase):
         self.assertEqual(u1.read_text(), self.base.read_text())
 
     def test_unrolled_body_is_replicated(self):
-        for k in (2, 4, 8):
+        for k in (2, 4, 8, 16, 32, 64):
             with self.subTest(k=k):
                 uk = toolchain.unroll(self.base, k, self.dir / f"u{k}.ll")
                 # k copies of the 3-xor body plus a 3-xor remainder loop.
