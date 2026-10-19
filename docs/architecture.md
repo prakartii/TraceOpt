@@ -25,14 +25,14 @@ updated in the same commit that changes a component's status.
 
 | Stage | Responsibility | Status |
 |---|---|---|
-| Source → LLVM IR | `clang -O1 -emit-llvm` on C benchmark kernels | Planned |
-| IR Analyzer | Extract a fixed, documented feature vector per function | Planned |
-| Candidate Generator | Produce variants with LLVM's `loop-unroll` pass at fixed factors | Planned |
-| Cost Model | Predict RISC Zero cycle cost for each variant | Planned |
-| Decision Engine | Pick a variant or keep the baseline; explain why | Planned |
-| zkVM Backend Adapter | Compile the chosen IR for the guest and run it in RISC Zero | Planned, integration Unverified |
-| Evaluation Harness | Run baseline / conventional / TraceOpt builds; collect metrics | Planned |
-| Report Generator | Write JSON with config, predictions, and measurements | Planned |
+| Source → LLVM IR | `clang -O1 -fno-unroll-loops -emit-llvm` (`traceopt/toolchain.py`) | Implemented |
+| IR Analyzer | Loops, trip counts, instruction classes, footprint (`traceopt/`) | Implemented; validated on Clang 21 IR |
+| Candidate Generator | LLVM `loop-unroll` at fixed factors (`traceopt/toolchain.py`) | Implemented |
+| Cost Model | Predict user and paging cycles, then padded total (`traceopt/model.py`, `segments.py`) | Implemented; calibration in progress |
+| Decision Engine | Pick a variant or keep the baseline; explain why (`traceopt/decision.py`) | Implemented |
+| zkVM Backend Adapter | Link the chosen object into the guest and run it (`traceopt/backend.py`) | Implemented (GCC and Clang routes verified) |
+| Evaluation Harness | Baseline / conventional / TraceOpt builds (`scripts/evaluate.py`) | In progress |
+| Report Generator | Predictions next to measurements (`traceopt/report.py`) | Implemented |
 
 ## 2. Integration point (Unverified)
 
@@ -64,8 +64,11 @@ in `design-decisions.md`):
 | IR parser | `traceopt/ir.py` | Implemented (unit-tested on fixtures) |
 | Dominators, loops, trip counts | `traceopt/loops.py` | Implemented (cross-checked against simulation) |
 | Instruction classes, static counts | `traceopt/features.py` | Implemented |
-| Block frequencies, dynamic counts | `traceopt/frequency.py` | Experimental |
-| JSON CLI | — | Planned (issue #10) |
+| Block frequencies, dynamic counts | `traceopt/frequency.py` | Implemented (exact vs. interpreter except data-dependent branches) |
+| Values computed from arguments | `traceopt/evaluate.py` | Implemented |
+| IR interpreter (ground truth) | `traceopt/interp.py` | Implemented (matches `tests/reference.py`) |
+| Memory footprint | `traceopt/footprint.py` | Implemented |
+| JSON CLI | `traceopt/cli.py` | Implemented (`analyze`, `profile`, `optimize`, `segments`, `decide`) |
 
 All tests so far use hand-written IR. Validation on real Clang output is
 pending (issue #2).
