@@ -12,7 +12,9 @@ the output against tests/reference.py. Each record holds the measured
 statistics next to the analyzer's features for the same IR and n, which is
 the calibration data for the cost model (Phase 2).
 
-Building the guest takes a few minutes per variant.
+By default only the guest is rebuilt for each variant and the host loads it
+at run time (seconds per variant); --full-build rebuilds the host as well
+(minutes per variant). The host must have been built once beforehand.
 """
 
 from __future__ import annotations
@@ -55,6 +57,8 @@ def main() -> int:
     parser.add_argument("--factors", type=int, nargs="+", default=[1, 2, 4, 8])
     parser.add_argument("--n", type=int, nargs="+", default=[1, 10, 100, 1000])
     parser.add_argument("--work", type=Path, help="keep IR and objects here")
+    parser.add_argument("--full-build", action="store_true",
+                        help="rebuild the host for every variant (slow)")
     args = parser.parse_args()
 
     if not toolchain.available():
@@ -75,12 +79,13 @@ def main() -> int:
             ll = toolchain.unroll(base, k, out / f"u{k}.ll")
             obj = toolchain.codegen(ll, out / f"u{k}.o")
             print(f"building {name} unroll={k}", file=sys.stderr)
-            backend.build(obj=obj)
+            backend.build(obj=obj, guest_only=not args.full_build)
+            kernel_elf = None if args.full_build else backend.KERNEL_BIN
             code_bytes = backend.kernel_code_bytes()
             static = static_counts(parse_module(ll.read_text()).functions["traceopt_kernel"])
             fp = footprint(ll.read_text(), "traceopt_kernel")
             for n in args.n:
-                report = backend.execute(n)
+                report = backend.execute(n, kernel_elf=kernel_elf)
                 want = KERNELS[name](n)
                 ok = report["result"]["output"] == want
                 if not ok:
