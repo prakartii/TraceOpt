@@ -53,6 +53,32 @@ class AnalyzeCliTest(unittest.TestCase):
         self.assertIn("error", err)
 
 
+CLANG = Path(__file__).parent / "fixtures" / "clang21"
+
+
+class ProfileCliTest(unittest.TestCase):
+    def test_exact_counts_and_estimate(self):
+        code, out, _ = run("profile", str(CLANG / "xorshift.ll"), "--arg", "0=10")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(report["result"], 2653896249)  # tests/reference.py
+        self.assertEqual(report["block_counts"]["5"], 10)
+        self.assertEqual(report["dynamic_counts"]["alu"], 70)
+        self.assertEqual(report["estimated_dynamic_counts"]["alu"], 70)
+
+    def test_data_dependent_kernel_differs_from_estimate(self):
+        code, out, _ = run("profile", str(CLANG / "branchy.ll"), "--arg", "0=100")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["dynamic_counts"]["mul"], 22)
+        self.assertEqual(report["estimated_dynamic_counts"]["mul"], 25)
+
+    def test_missing_argument_is_an_error(self):
+        code, _, err = run("profile", str(CLANG / "xorshift.ll"))
+        self.assertEqual(code, 1)
+        self.assertIn("missing", err)
+
+
 class SegmentsCliTest(unittest.TestCase):
     def test_single_segment(self):
         # xorshift n=1000, measured total 65536 (tests/test_segments.py).
