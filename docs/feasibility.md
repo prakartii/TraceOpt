@@ -1,6 +1,6 @@
 # Phase 0 Feasibility Note
 
-Status: **in progress.** Each result below was observed on the machine
+Status: **mostly complete** (proving memory per segment size pending). Each result below was observed on the machine
 described in §1. Items not yet tested are listed in §6.
 
 ## 1. Environment
@@ -191,6 +191,8 @@ IR route TraceOpt depends on works end to end.
 ## 7. Conclusion so far
 
 The backend is viable for **execution-based measurements** (user, paging, and
-total cycles; segments) under the current memory limit. Linking C into a
-RISC Zero guest works with GCC. The decisive remaining test is the Clang/LLVM
-IR route.
+total cycles; segments) under the current memory limit. C kernels link into a
+RISC Zero guest through both RISC Zero's GCC and the Clang → LLVM IR → `llc`
+route, and the analyzer's loops agree with LLVM's LoopInfo on every benchmark
+(`scripts/crosscheck_loops.py`). The remaining Phase 0 item is proving time
+and memory with capped segment sizes.
