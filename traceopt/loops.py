@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from traceopt.evaluate import evaluate
 from traceopt.ir import Function, Instruction
 
 
@@ -138,7 +139,9 @@ def _resolve(token: str, fn: Function, args: dict[str, int]) -> int | None:
         return int(token)
     if token.startswith("%") and token[1:] in fn.params:
         return args.get(token[1:])
-    return None
+    # A value computed from constants and arguments, e.g. the runtime
+    # unroller's `%unroll_iter = sub i32 %n, %xtraiter` (unsigned result).
+    return evaluate(fn, token, args)
 
 
 def trip_count(fn: Function, loop: Loop, args: dict[str, int] | None = None) -> int | None:

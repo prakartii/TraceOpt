@@ -54,5 +54,36 @@ class ClangFixtureTest(unittest.TestCase):
         self.assertEqual(dyn["mul"], 16 * N)
 
 
+class UnrolledFixtureTest(unittest.TestCase):
+    """Trip counts of loops produced by `opt -passes=loop-unroll -unroll-runtime`."""
+
+    def loops_by_role(self, k):
+        fn = kernel(f"xorshift_u{k}")
+        loops = find_loops(fn)
+        main = next(l for l in loops
+                    if any("%niter" in i.text for i in fn.block(l.header).instructions))
+        rest = [l for l in loops if l is not main]
+        return fn, main, rest
+
+    def test_main_loop_runs_n_div_k_times(self):
+        for k in (2, 4, 8):
+            fn, main, _ = self.loops_by_role(k)
+            for n in (k, k + 1, 3 * k - 1, 1000, 1003):
+                with self.subTest(k=k, n=n):
+                    self.assertEqual(trip_count(fn, main, {"0": n}), n // k)
+
+    def test_remainder_loop_runs_n_mod_k_times(self):
+        for k in (4, 8):
+            fn, _, (epilog,) = self.loops_by_role(k)
+            for n in range(1, 3 * k):
+                if n % k:
+                    with self.subTest(k=k, n=n):
+                        self.assertEqual(trip_count(fn, epilog, {"0": n}), n % k)
+
+    def test_factor_two_has_no_remainder_loop(self):
+        _, _, rest = self.loops_by_role(2)
+        self.assertEqual(rest, [])
+
+
 if __name__ == "__main__":
     unittest.main()
