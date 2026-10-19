@@ -29,8 +29,8 @@ class Policy:
     # cost of code growth itself is predicted as paging (traceopt/optimize.py).
     max_code_growth: float = 16.0
     segment_limit_po2: int = DEFAULT_SEGMENT_LIMIT_PO2
-    # Relative error band of the cycle predictions. A candidate must win even
-    # with its predictions scaled by (1 + u) and the baseline's by (1 - u).
+    # Relative error band of the user-cycle predictions. A candidate must win
+    # even with its user cycles scaled by (1 + u) and the baseline's by (1 - u).
     uncertainty: float = 0.0
 
 
@@ -57,9 +57,10 @@ class Decision:
 def _padded(c: Candidate, policy: Policy, scale: float = 1.0) -> int | None:
     if c.predicted_user_cycles is None or c.paging_per_segment is None:
         return None
+    # Only user cycles are scaled: paging predictions were within ~1% on the
+    # calibration data, while cycle predictions had ~8% held-out error.
     return padded_total_cycles(round(c.predicted_user_cycles * scale),
-                               round(c.paging_per_segment * scale),
-                               policy.segment_limit_po2)
+                               c.paging_per_segment, policy.segment_limit_po2)
 
 
 def decide(baseline: Candidate, candidates: list[Candidate],
@@ -71,7 +72,7 @@ def decide(baseline: Candidate, candidates: list[Candidate],
     `max_code_growth` of the baseline, and (4) its padded total is at least
     `min_improvement` below the baseline's. With `uncertainty` u, (4) must
     hold between the candidate's padded total at (1 + u) times its predicted
-    cycles and the baseline's at (1 - u) times: the win must survive a
+    user cycles and the baseline's at (1 - u) times: the win must survive a
     prediction error of u in the unfavorable direction. Among eligible
     candidates the lowest bound wins, then the lowest padded total, then the
     lowest user cycles, then the smallest code.
