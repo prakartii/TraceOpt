@@ -65,6 +65,15 @@ def unroll(base: Path, factor: int, out: Path) -> Path:
     return out
 
 
+def emit_conventional_ir(src: Path, level: str, out: Path) -> Path:
+    """IR from Clang's normal pipeline at `level` (O2 or O3), which applies
+    LLVM's own unrolling heuristics: the "conventional" comparison point."""
+    if level not in ("O2", "O3"):
+        raise ValueError("level must be O2 or O3")
+    _run(["clang", *TARGET, f"-{level}", "-S", "-emit-llvm", str(src), "-o", str(out)])
+    return out
+
+
 def codegen(ll: Path, out: Path) -> Path:
     """RISC-V object for the guest (TRACEOPT_KERNEL_OBJ)."""
     _run(["llc", "-O2", "-mattr=+m", "-target-abi=ilp32", "-filetype=obj",

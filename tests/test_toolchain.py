@@ -65,6 +65,18 @@ class ToolchainTest(unittest.TestCase):
             sizes.append(toolchain.symbol_size(obj))
         self.assertGreater(sizes[1], sizes[0])
 
+    def test_conventional_levels(self):
+        for level in ("O2", "O3"):
+            with self.subTest(level=level):
+                ll = toolchain.emit_conventional_ir(ROOT / "benchmarks" / "xorshift.c", level,
+                                                    self.dir / f"{level}.ll")
+                text = ll.read_text()
+                self.assertNotIn("traceopt.unroll.cleared", text)
+                obj = toolchain.codegen(ll, self.dir / f"{level}.o")
+                self.assertGreater(toolchain.symbol_size(obj), 0)
+        with self.assertRaises(ValueError):
+            toolchain.emit_conventional_ir(ROOT / "benchmarks" / "xorshift.c", "O1", self.dir / "x.ll")
+
     def test_tool_errors_are_reported(self):
         bad = self.dir / "bad.c"
         bad.write_text("int f( {")
