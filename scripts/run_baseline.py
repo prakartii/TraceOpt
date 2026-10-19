@@ -12,75 +12,30 @@ repeated (--repeat) and must give identical statistics; execution is
 deterministic, so any difference is reported as an error.
 
 Current baseline: kernels compiled by RISC Zero's GCC toolchain through the
-`cc` crate (-O2). The Clang/LLVM-IR baseline replaces this once LLVM is
-installed (issue #2).
+`cc` crate (-O2). Clang/LLVM unroll variants are measured by
+scripts/run_variants.py.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import platform
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tests"))
+sys.path.insert(0, str(ROOT))
 from reference import KERNELS  # noqa: E402
 
-TARGET = Path(os.environ.get("CARGO_TARGET_DIR", Path.home() / ".cache/traceopt-target"))
-HOST = TARGET / "release" / "host"
-KERNEL_ELF = TARGET / "riscv-guest/methods/kernel/riscv32im-risc0-zkvm-elf/release/kernel"
-
-
-def kernel_code_bytes() -> int | None:
-    """Size of the `traceopt_kernel` symbol in the guest ELF, from `nm -S`."""
-    nm = next(Path.home().glob(".risc0/toolchains/*cpp*/*/bin/riscv32-unknown-elf-nm"), None)
-    if nm is None or not KERNEL_ELF.exists():
-        return None
-    out = subprocess.run([str(nm), "-S", str(KERNEL_ELF)],
-                         capture_output=True, text=True, check=True).stdout
-    for line in out.splitlines():
-        parts = line.split()
-        if len(parts) == 4 and parts[3] == "traceopt_kernel":
-            return int(parts[1], 16)
-    return None
-
-
-def tool_version(*cmd: str) -> str:
-    try:
-        out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
-        return out.strip().splitlines()[0]
-    except (OSError, subprocess.CalledProcessError, IndexError):
-        return "unavailable"
-
-
-def toolchain() -> dict:
-    home = Path.home()
-    cargo_bin = home / ".cargo/bin"
-    gcc = next(home.glob(".risc0/toolchains/*cpp*/*/bin/riscv32-unknown-elf-gcc"), None)
-    return {
-        "rustc": tool_version(str(cargo_bin / "rustc"), "--version"),
-        "cargo-risczero": tool_version(str(cargo_bin / "cargo-risczero"), "risczero", "--version"),
-        "r0vm": tool_version(str(cargo_bin / "r0vm"), "--version"),
-        "risc0_gcc": tool_version(str(gcc), "--version") if gcc else "unavailable",
-        "platform": platform.platform(),
-    }
-
-
-def build(src: Path) -> None:
-    env = dict(os.environ, TRACEOPT_KERNEL_SRC=str(src))
-    subprocess.run([str(ROOT / "scripts/build_backend.sh")], env=env, check=True,
-                   stdout=subprocess.DEVNULL)
-
-
-def execute(n: int) -> dict:
-    out = subprocess.run([str(HOST), "execute", "kernel", str(n)],
-                         capture_output=True, text=True, check=True).stdout
-    return json.loads(out)
+from traceopt.backend import (  # noqa: E402
+    KERNEL_ELF,
+    build,
+    execute,
+    kernel_code_bytes,
+    toolchain_versions,
+)
 
 
 def main() -> int:
@@ -96,7 +51,7 @@ def main() -> int:
     for name in names:
         src = ROOT / "benchmarks" / f"{name}.c"
         print(f"building {name}", file=sys.stderr)
-        build(src)
+        build(src=src)
         code_bytes = kernel_code_bytes()
         if code_bytes is None:
             errors.append(f"{name}: could not read traceopt_kernel size from {KERNEL_ELF}")
@@ -127,7 +82,7 @@ def main() -> int:
     report = {
         "description": "baseline: RISC Zero GCC toolchain (-O2), execute mode",
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "toolchain": toolchain(),
+        "toolchain": toolchain_versions(),
         "repeat": args.repeat,
         "records": records,
         "errors": errors,
