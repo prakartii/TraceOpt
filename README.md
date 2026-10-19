@@ -206,8 +206,10 @@ Every run matched its reference and was identical across repeats.
 | `branchy` | data-dependent three-way branch | 124 | 14,814 | 65,536 |
 | `strided_rw` | strided reads and writes over a 64 KiB array | 140 | 645,641 | 1,048,576 |
 
-These are GCC baselines for the measurement backend. The planned Clang
-`-O1` / `-O2` / `-O3` / TraceOpt comparison has not been run yet.
+These are GCC baselines for the measurement backend. The Clang baseline,
+`-O2`, and TraceOpt comparison is in [Results](#results) and
+[docs/experiments.md](docs/experiments.md). `sum_squares` is left out of the
+Clang experiments because Clang folds its loop into a closed form.
 
 ## Cost model (initial proposal)
 
@@ -220,12 +222,15 @@ C(F) = Σᵢ wᵢ·nᵢ(F) + w_M·M(F) + w_B·B(F) + w_L·L(F)
 - `B(F)`: estimated dynamic branch count
 - `L(F)`: lookup/precompile features (omitted for the first backend)
 
-The weights will be fitted to measured cycle counts by non-negative least
-squares (`traceopt/calibrate.py`), and the error reported on held-out
-benchmarks. The predicted user and paging cycles then go through the segment
-model to give a padded total, which is what candidates are compared on. This
-is a modeling hypothesis, not a validated formula. Precise feature
-definitions are in
+In the implemented model, the instruction classes are grouped into
+compute, memory, and control counts, and their weights are fitted to
+measured kernel cycles by non-negative least squares on relative errors
+(`traceopt/calibrate.py`, [docs/cost-model.md](docs/cost-model.md)).
+Paging is fitted against the number of data pages; `B(F)` is part of the
+control group and `L(F)` is omitted. The predicted user and paging cycles go
+through the segment model to give a padded total, which is what candidates
+are compared on. It is an empirical model for these kernels, with the
+held-out errors in [Results](#results). Precise feature definitions are in
 [architecture.md §4](docs/architecture.md#4-cost-model-initial-proposal-not-validated).
 
 TraceOpt keeps these quantities separate and never reports one as another:
@@ -368,17 +373,20 @@ never selected.
 
 ## Testing
 
-Unit tests (69 tests, standard library only; run from the repository root).
-CI runs them on every push:
+Unit tests (162, standard library only; run from the repository root). CI
+runs them on every push; tests that need LLVM run when clang, opt, and llc
+are on PATH and are skipped otherwise:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
 They cover the IR parser, loops and trip counts (cross-checked against
-simulation over more than 1,000 cases), instruction classes, frequency
-estimates, the CLI, the segment model (against measured data), calibration,
-and the decision logic.
+simulation over more than 1,000 cases), the analyzer on real Clang 21 IR
+(against LLVM LoopInfo and exact counts from the IR interpreter), the
+interpreter against the Python references, the segment model (against
+measured data), calibration, the decision rule, candidate generation, and
+every CLI command.
 
 zkVM checks (inside WSL, after building):
 
@@ -474,8 +482,9 @@ TraceOpt/
 - Correctness is checked by differential testing, not formal equivalence proofs.
 - Proving time may be measurable only for small programs on the development
   machine (about 7.6 GB of RAM available to WSL).
-- The cost model will be calibrated on a small benchmark set and may not
-  generalize.
+- The cost model is calibrated on four small kernels and may not
+  generalize; it under-predicts memory-heavy loops and multi-segment paging
+  (docs/experiments.md).
 - `env::cycle_count()`, used to measure kernel cycles, is reported by the host
   and not constrained by the proof. It is a measurement aid, not a proven value.
 
