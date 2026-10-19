@@ -113,12 +113,18 @@ extracted reliably will be kept):
   (classes in `traceopt/features.py`: alu, mul, div, cmp, select, cast,
   address, load, store, cond_branch, jump, ret, phi, call, other).
   Implemented in `traceopt/frequency.py` *(Experimental)*:
-  - Trip counts come from induction variables of rotated single-latch loops,
-    with constant or parameter bounds (`traceopt/loops.py`).
+  - Trip counts come from induction variables of rotated single-latch loops.
+    Bounds may be constants, parameters, or values computed from them
+    (`traceopt/evaluate.py`), which covers the main and remainder loops that
+    LLVM's runtime unroller produces (`traceopt/loops.py`).
   - Each block's frequency is its reach probability within its innermost
     loop iteration, multiplied by the enclosing trip counts.
-  - Loop guards are assumed to enter the loop when its trip count is known to
-    be at least 1. Other conditional branches are split 50/50.
+  - Branches whose condition can be computed from the arguments are taken
+    exactly. Otherwise, loop guards are assumed to enter the loop when its
+    trip count is known to be at least 1, and other branches are split 50/50.
+  - Checked on Clang 21 output: loops agree with LLVM's LoopInfo
+    (`scripts/crosscheck_loops.py`), and xorshift's xor count is exactly 3n
+    for unroll factors 1, 2, 4, and 8 (`tests/test_clang_fixtures.py`).
 
   Limits: data-dependent branch probabilities are guesses, early exits
   (`break`) are not modeled, and an unknown trip count makes the estimate
