@@ -147,12 +147,16 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
     return freq
 
 
-def dynamic_counts(fn: Function, args: dict[str, int] | None = None) -> Counter:
-    """Estimated dynamic instruction-class counts for one call."""
-    freq = block_frequencies(fn, args)
+def counts_from_frequencies(fn: Function, freq: dict[str, float]) -> Counter:
+    """Instruction-class counts given how often each block executes."""
     per_block = block_counts(fn)
     total: Counter = Counter()
     for label, f in freq.items():
         for cls, count in per_block[label].items():
             total[cls] += f * count
     return total
+
+
+def dynamic_counts(fn: Function, args: dict[str, int] | None = None) -> Counter:
+    """Estimated dynamic instruction-class counts for one call."""
+    return counts_from_frequencies(fn, block_frequencies(fn, args))
