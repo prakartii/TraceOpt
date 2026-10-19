@@ -266,7 +266,7 @@ verified on Ubuntu 26.04 in WSL.
 | RISC Zero C/C++ toolchain | 2024.1.5 (GCC 13.2.0, `riscv32-unknown-elf`) |
 | Host Rust | 1.99.0 |
 | Python | 3.10+ (CI: 3.10 and 3.12) |
-| LLVM/Clang | not installed yet |
+| LLVM/Clang/LLD | 21.1.8 (Ubuntu packages; CI also runs the LLVM tests with LLVM 18) |
 
 ### Backend (WSL)
 
@@ -280,10 +280,12 @@ curl -L https://risczero.com/install | bash
 scripts/build_backend.sh
 ```
 
-LLVM, needed for the Clang route (not yet tested end to end):
+LLVM, needed for `traceopt optimize` and the measurement scripts:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y clang llvm lld
+sudo apt-get install -y clang-21 llvm-21 lld-21   # with sudo, or:
+scripts/install_llvm_user.sh                      # without sudo, into ~/.local/llvm
+source scripts/llvm_env.sh                        # puts clang, opt, llc on PATH
 ```
 
 ### Python tools (any OS)
