@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from traceopt import toolchain
+from traceopt.frequency import block_frequencies
 from traceopt.ir import parse_module
 from traceopt.loops import find_loops
 
@@ -44,6 +45,17 @@ class ToolchainTest(unittest.TestCase):
                 uk = toolchain.unroll(self.base, k, self.dir / f"u{k}.ll")
                 # k copies of the 3-xor body plus a 3-xor remainder loop.
                 self.assertEqual(uk.read_text().count("xor i32"), 3 * k + 3)
+
+    def test_unrolled_variants_preserve_work(self):
+        # Same invariant as the committed fixtures, on freshly generated IR.
+        for k in (1, 2, 4, 8):
+            uk = toolchain.unroll(self.base, k, self.dir / f"u{k}.ll")
+            fn = self.kernel(uk)
+            xors = {b.label: sum(i.opcode == "xor" for i in b.instructions) for b in fn.blocks}
+            for n in (0, 5, 1000):
+                with self.subTest(k=k, n=n):
+                    freq = block_frequencies(fn, {"0": n})
+                    self.assertEqual(sum(freq[b] * xors[b] for b in freq), 3 * n)
 
     def test_codegen_and_size_grows_with_factor(self):
         sizes = []
