@@ -33,6 +33,7 @@ from pathlib import Path
 
 from traceopt.decision import Candidate, Policy, decide
 from traceopt.features import CLASSES, static_counts
+from traceopt.footprint import footprint
 from traceopt.frequency import UnknownTripCount, counts_from_frequencies, dynamic_counts
 from traceopt.interp import InterpError, Interpreter
 from traceopt.ir import UnsupportedIR, parse_module
@@ -52,7 +53,8 @@ def _parse_arg(text: str) -> tuple[str, int]:
 
 
 def analyze(path: Path, function: str, args: dict[str, int]) -> dict:
-    module = parse_module(path.read_text())
+    source = path.read_text()
+    module = parse_module(source)
     if function not in module.functions:
         raise KeyError(f"function {function!r} not found in {path}")
     fn = module.functions[function]
@@ -74,6 +76,9 @@ def analyze(path: Path, function: str, args: dict[str, int]) -> dict:
         ],
         "static_counts": {c: static_counts(fn)[c] for c in CLASSES},
     }
+    fp = footprint(source, fn.name)
+    report["footprint"] = {"globals": fp.globals, "written": sorted(fp.written),
+                           "data_pages": fp.data_pages, "dirty_pages": fp.dirty_pages}
     try:
         dyn = dynamic_counts(fn, args)
         report["dynamic_counts"] = {c: dyn[c] for c in CLASSES}

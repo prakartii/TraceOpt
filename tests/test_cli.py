@@ -30,6 +30,13 @@ class AnalyzeCliTest(unittest.TestCase):
         self.assertEqual(report["static_counts"]["alu"], 7)
         self.assertEqual(report["dynamic_counts"]["alu"], 7000)
 
+    def test_footprint(self):
+        code, out, _ = run("analyze", str(CLANG / "strided_rw.ll"), "--arg", "0=1")
+        self.assertEqual(code, 0)
+        fp = json.loads(out)["footprint"]
+        self.assertEqual(fp, {"globals": {"buf": 65536}, "written": ["buf"],
+                              "data_pages": 64, "dirty_pages": 64})
+
     def test_percent_prefix_accepted(self):
         code, out, _ = run("analyze", str(FIXTURE), "--arg", "%0=10")
         self.assertEqual(code, 0)
