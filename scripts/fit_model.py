@@ -17,7 +17,11 @@ overhead (user minus kernel cycles) and paging cycles against data pages.
 Records without `data_pages` take it from the IR in --ir.
 
 Reports the in-sample error and the leave-one-benchmark-out error: each
-benchmark is predicted by a model fitted without it.
+benchmark is predicted by a model fitted without it. The fit minimizes
+squared relative errors (--absolute: squared cycle errors).
+
+A feature is an instruction class (`alu`) or a named sum of classes
+(`memory=load+store`).
 """
 
 from __future__ import annotations
@@ -39,6 +43,20 @@ from traceopt.calibrate import (  # noqa: E402
 # Preference order for keeping one of several dependent features.
 DEFAULT_FEATURES = ["alu", "mul", "load", "store", "cond_branch", "jump",
                     "cmp", "address", "cast", "select", "phi", "ret"]
+
+
+def parse_features(specs: list[str]) -> dict[str, list[str]]:
+    """`alu` -> {"alu": ["alu"]}; `memory=load+store` -> {"memory": ["load", "store"]}."""
+    out = {}
+    for spec in specs:
+        name, sep, parts = spec.partition("=")
+        out[name] = parts.split("+") if sep else [name]
+    return out
+
+
+def combine(counts: dict, groups: dict[str, list[str]]) -> dict:
+    return {name: sum(float(counts.get(c, 0.0)) for c in parts)
+            for name, parts in groups.items()}
 
 
 def ir_path(ir_dir: Path, record: dict) -> Path:
@@ -66,7 +84,7 @@ def data_pages(args: argparse.Namespace, record: dict) -> int:
     return footprint(ir_path(args.ir, record).read_text(), "traceopt_kernel").data_pages
 
 
-def cost_model(args, data, records, kernel_model):
+def cost_model(args, data, records, kernel_model, groups):
     from traceopt.model import CostModel
 
     overheads = [r["user_cycles"] - r["kernel_cycles"] for r in records]
@@ -80,6 +98,7 @@ def cost_model(args, data, records, kernel_model):
     return CostModel(
         intercept=kernel_model.intercept,
         weights={f: w for f, w in kernel_model.weights.items() if w != 0.0},
+        feature_definitions={f: groups[f] for f, w in kernel_model.weights.items() if w != 0.0},
         guest_overhead=sum(overheads) / len(overheads),
         paging_base=paging_base,
         paging_per_page=per_page,
@@ -106,6 +125,8 @@ def main() -> int:
                         help="IR of each variant, as DIR/<benchmark>/u<K>.ll")
     parser.add_argument("--exact", action="store_true",
                         help="use exact interpreter counts from --ir as features")
+    parser.add_argument("--absolute", action="store_true",
+                        help="minimize squared cycle errors instead of relative errors")
     parser.add_argument("--min-n", type=int, default=1,
                         help="ignore records with smaller n")
     args = parser.parse_args()
@@ -115,24 +136,28 @@ def main() -> int:
                if r["output_matches_reference"] and r["n"] >= args.min_n]
     if args.exact and args.ir is None:
         parser.error("--exact needs --ir")
+    groups = parse_features(args.features)
     if args.exact:
-        rows = [exact_counts(args.ir, r) for r in records]
+        rows = [combine(exact_counts(args.ir, r), groups) for r in records]
         source = "exact (IR interpreter)"
     else:
         records = [r for r in records if r.get("dynamic_counts")]
-        rows = [{k: float(v) for k, v in r["dynamic_counts"].items()} for r in records]
+        rows = [combine(r["dynamic_counts"], groups) for r in records]
         source = "static estimate"
+    relative = not args.absolute
     y = [float(r["kernel_cycles"]) for r in records]
-    groups = [r["benchmark"] for r in records]
+    bench = [r["benchmark"] for r in records]
 
-    kept, dropped = independent_features(rows, args.features)
-    model = fit(rows, y, kept)
+    kept, dropped = independent_features(rows, list(groups))
+    model = fit(rows, y, kept, relative=relative)
     train = relative_errors(model, rows, y)
-    held_out = leave_one_group_out(rows, y, groups, kept)
+    held_out = leave_one_group_out(rows, y, bench, kept, relative=relative)
 
     report = {
         "results": str(args.results),
         "feature_source": source,
+        "objective": "relative" if relative else "absolute",
+        "feature_definitions": groups,
         "observations": len(records),
         "features": kept,
         "dropped_dependent_features": dropped,
@@ -151,9 +176,10 @@ def main() -> int:
     if args.out:
         args.out.write_text(text)
     if args.model_out:
-        cost_model(args, data, records, model).save(args.model_out)
+        cost_model(args, data, records, model, groups).save(args.model_out)
 
-    print(f"{len(records)} observations, features ({source}): {', '.join(kept)}")
+    print(f"{len(records)} observations, {report['objective']} errors, "
+          f"features ({source}): {', '.join(kept)}")
     print(f"dropped as dependent: {', '.join(dropped) or 'none'}")
     print(f"intercept {model.intercept:.2f}; " +
           ", ".join(f"{f} {w:.3f}" for f, w in report["weights"].items()))

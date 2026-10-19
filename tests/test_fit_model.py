@@ -31,13 +31,13 @@ def synthetic_results():
 
 
 class FitModelScriptTest(unittest.TestCase):
-    def run_script(self, data, output="fit"):
+    def run_script(self, data, output="fit", extra=()):
         with tempfile.TemporaryDirectory() as d:
             src = Path(d) / "results.json"
             fit_out, model_out = Path(d) / "fit.json", Path(d) / "model.json"
             src.write_text(json.dumps(data))
             proc = subprocess.run([sys.executable, str(SCRIPT), str(src), "--out", str(fit_out),
-                                   "--model-out", str(model_out)],
+                                   "--model-out", str(model_out), *extra],
                                   capture_output=True, text=True)
             self.assertEqual(proc.returncode, 0, proc.stderr)
             return json.loads((fit_out if output == "fit" else model_out).read_text())
@@ -56,6 +56,20 @@ class FitModelScriptTest(unittest.TestCase):
         held_out = self.run_script(synthetic_results())["leave_one_benchmark_out"]
         self.assertLess(held_out["a"]["max_abs"], 1e-9)
         self.assertGreater(held_out["b"]["mean_abs"], 0.05)
+
+    def test_composite_feature(self):
+        # alu and mul fold into one "compute" feature; its weight must lie
+        # between their true costs, and the model records the definition.
+        model = self.run_script(synthetic_results(), output="model",
+                                extra=["--features", "compute=alu+mul", "cond_branch", "jump"])
+        self.assertEqual(model["feature_definitions"]["compute"], ["alu", "mul"])
+        self.assertTrue(1.0 <= model["weights"]["compute"] <= 2.0)
+
+    def test_objective_is_reported(self):
+        self.assertEqual(self.run_script(synthetic_results())["objective"], "relative")
+        fit = self.run_script(synthetic_results(), extra=["--absolute"])
+        self.assertEqual(fit["objective"], "absolute")
+        self.assertAlmostEqual(fit["weights"]["mul"], 2.0, places=6)
 
     def test_failed_records_are_excluded(self):
         data = synthetic_results()
