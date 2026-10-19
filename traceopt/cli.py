@@ -1,5 +1,8 @@
 """Command-line interface.
 
+    python -m traceopt optimize <kernel.c> --model MODEL.json --arg 0=N [--work DIR]
+                                [--factors K ...] [--po2 L] [--min-improvement F]
+                                [--max-code-growth F]
     python -m traceopt analyze <file.ll> [--function NAME] [--arg NAME=VALUE ...]
     python -m traceopt profile <file.ll> [--function NAME] --arg NAME=VALUE ...
     python -m traceopt segments <user_cycles> <paging_per_segment> [--po2 L]
@@ -8,6 +11,10 @@
 
 `decide` reads {"baseline": {...}, "candidates": [{...}, ...]}, where each
 entry has the fields of traceopt.decision.Candidate, and prints the decision.
+
+`optimize` needs clang, opt, llc, and llvm-nm on PATH (scripts/llvm_env.sh).
+It prints the decision, every candidate's prediction, and the path of the
+selected RISC-V object, which can be linked with TRACEOPT_KERNEL_OBJ.
 
 `profile` runs the function in the IR interpreter and prints exact block
 and instruction-class counts next to the static estimates.
@@ -30,6 +37,7 @@ from traceopt.frequency import UnknownTripCount, counts_from_frequencies, dynami
 from traceopt.interp import InterpError, Interpreter
 from traceopt.ir import UnsupportedIR, parse_module
 from traceopt.loops import find_loops, trip_count
+from traceopt.model import CostModel
 from traceopt.segments import DEFAULT_SEGMENT_LIMIT_PO2, padded_total_cycles, segment_po2s
 
 
@@ -135,6 +143,17 @@ def decide_file(path: Path, policy: Policy) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceopt")
     sub = parser.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("optimize", help="choose an unroll factor for a C kernel")
+    p.add_argument("file", type=Path)
+    p.add_argument("--model", type=Path, required=True, help="CostModel JSON (fit_model.py)")
+    p.add_argument("--arg", type=_parse_arg, action="append", default=[],
+                   help="value of a kernel parameter, NAME=VALUE")
+    p.add_argument("--work", type=Path, default=Path("traceopt-work"),
+                   help="directory for IR and objects (default: %(default)s)")
+    p.add_argument("--factors", type=int, nargs="+", default=[1, 2, 4, 8])
+    p.add_argument("--po2", type=int, default=DEFAULT_SEGMENT_LIMIT_PO2)
+    p.add_argument("--min-improvement", type=float, default=Policy.min_improvement)
+    p.add_argument("--max-code-growth", type=float, default=Policy.max_code_growth)
     p = sub.add_parser("analyze", help="extract features from an LLVM IR file")
     p.add_argument("file", type=Path)
     p.add_argument("--function", default="traceopt_kernel")
@@ -160,6 +179,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if ns.command == "segments":
             report = segments(ns.user_cycles, ns.paging_per_segment, ns.po2)
+        elif ns.command == "optimize":
+            from traceopt import optimize, toolchain
+
+            if not toolchain.available():
+                raise OSError("LLVM tools not on PATH (source scripts/llvm_env.sh)")
+            policy = Policy(ns.min_improvement, ns.max_code_growth, ns.po2)
+            result = optimize.optimize(ns.file, dict(ns.arg), CostModel.load(ns.model),
+                                       ns.work, tuple(ns.factors), policy)
+            report = result.to_dict()
         elif ns.command == "profile":
             report = profile(ns.file, ns.function, dict(ns.arg))
         elif ns.command == "decide":
@@ -167,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
             report = decide_file(ns.file, policy)
         else:
             report = analyze(ns.file, ns.function, dict(ns.arg))
-    except (OSError, KeyError, ValueError, UnsupportedIR, InterpError) as e:
+    except (OSError, KeyError, ValueError, UnsupportedIR, InterpError, RuntimeError) as e:
         print(f"traceopt: error: {e}", file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2))
