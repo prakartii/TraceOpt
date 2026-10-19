@@ -394,7 +394,9 @@ python3 scripts/run_baseline.py --out results/baseline-gcc.json
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Pipeline, modules, cost-model features, predicted vs. measured quantities |
 | [docs/feasibility.md](docs/feasibility.md) | Phase 0 environment, commands, measurements, and blockers |
-| [docs/design-decisions.md](docs/design-decisions.md) | Why RISC Zero, C kernels via FFI, Python over textual IR, LLVM's unroller |
+| [docs/cost-model.md](docs/cost-model.md) | Calibration procedure, feature-set comparison, fitted model, held-out errors, limits |
+| [docs/experiments.md](docs/experiments.md) | Evaluation method, results, missed wins, threats to validity |
+| [docs/design-decisions.md](docs/design-decisions.md) | Why RISC Zero, C kernels via FFI, Python over textual IR, LLVM's unroller, and later decisions |
 | [docs/development-roadmap.md](docs/development-roadmap.md) | Phases 0–6, tasks, dependencies, risks, work split |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit conventions, rules for reporting results |
 
