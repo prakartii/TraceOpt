@@ -1,7 +1,8 @@
 # Experiments
 
-Status: **methodology fixed; results pending.** Every number added here must
-come from a committed results file and the command that produced it.
+Status: **first evaluation complete** (`results/evaluation-clang21.json`).
+Every number here comes from a committed results file and the command that
+produced it.
 
 ## 1. Questions
 
@@ -66,4 +67,79 @@ run once.
 
 ## 5. Results
 
-Pending.
+Model: `results/model-clang21.json` (docs/cost-model.md). Policy: 5% minimum
+improvement, 16x code-growth limit, 10% uncertainty band on user cycles.
+Inputs n = 5, 50, 300, 3000 — none of them used for calibration (1, 10, 100,
+1000). Every build's output matched the reference.
+
+```bash
+source scripts/llvm_env.sh
+python3 scripts/evaluate.py --model results/model-clang21.json \
+    --out results/evaluation-clang21.json
+```
+
+### Measured padded total cycles
+
+"Best variant" is the lowest padded total among the measured unroll
+variants (factors 1, 2, 4, 8), i.e. the best TraceOpt's candidate set could
+reach.
+
+| Benchmark | n | Baseline | -O2 | TraceOpt (choice) | Best variant |
+|---|---|---|---|---|---|
+| xorshift | 5 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| xorshift | 50 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| xorshift | 300 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| xorshift | 3000 | 65536 | 65536 | 65536 (unroll1) | 65536 |
+| nested_fnv | 5 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| nested_fnv | 50 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| nested_fnv | 300 | 65536 | 65536 | 65536 (unroll1) | 65536 |
+| nested_fnv | 3000 | 524288 | **262144** | 524288 (unroll1) | 262144 |
+| branchy | 5 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| branchy | 50 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| branchy | 300 | 32768 | 32768 | 32768 (unroll1) | 32768 |
+| branchy | 3000 | 131072 | 131072 | 131072 (unroll1) | 65536 |
+| strided_rw | 5 | 262144 | 262144 | **131072 (unroll4)** | 131072 |
+| strided_rw | 50 | 262144 | 262144 | 262144 (unroll1) | 262144 |
+| strided_rw | 300 | 524288 | 524288 | 524288 (unroll1) | 524288 |
+| strided_rw | 3000 | 2621440 | 2621440 | 2621440 (unroll1) | 2097152 |
+
+### Summary
+
+| Outcome | Cases |
+|---|---|
+| No variant could lower the padded total; TraceOpt kept the baseline | 12 |
+| A win was available and TraceOpt took it | 1 (strided_rw n=5: −50%) |
+| A win was available and TraceOpt missed it | 3 |
+| TraceOpt's choice measured worse than the baseline | **0** |
+| Predicted padded total of TraceOpt's choice equal to the measured one | 15 of 16 |
+
+-O2 lowered the padded total in one case (nested_fnv n=3000), where it fully
+unrolls the 16-iteration inner loop; in the other 15 its padded total equals
+the baseline's. TraceOpt beat -O2 once (strided_rw n=5) and lost to it once
+(nested_fnv n=3000).
+
+### Why the three wins were missed
+
+- **nested_fnv, n=3000** and **branchy, n=3000**: decisions near a
+  power-of-two boundary. The baseline predictions were accurate (1.0% and
+  0.3% error), but the 10% uncertainty band could not rule out that the
+  baseline already fits the smaller padded size (nested_fnv) or that the
+  candidates do not (branchy). The band was introduced after
+  `traceopt optimize --measure` selected xorshift n=1000 unroll8 for a
+  predicted halving that did not happen when measured; it trades missed wins
+  for no false ones.
+- **strided_rw, n=3000**: a model failure. User cycles were under-predicted
+  by 35% (strided_rw's update loop, as in calibration), and the run spans 3
+  segments, whose paging (159756 cycles) the single-segment paging model
+  does not capture.
+
+### Conclusions so far
+
+- For these kernels, most unroll decisions do not change proving work at
+  all: in 12 of 16 cases no unroll factor lowered the padded total, although
+  unrolling lowered the cycle count in every calibration case with n ≥ 10
+  (at n = 1 it was sometimes slower, e.g. xorshift 102 → 112 cycles).
+- When TraceOpt changed the code, the predicted halving was real. It never
+  selected a variant that measured worse than the baseline.
+- The limiting factor is prediction accuracy near boundaries and for
+  memory-heavy and multi-segment runs, not the decision logic.
