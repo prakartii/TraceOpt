@@ -3,7 +3,7 @@
     cycles ≈ intercept + Σ_f w_f · x_f
 
 Standard library only (decision D3). Weights are fitted by ordinary least
-squares on the normal equations; with `nonnegative=True`, features whose
+squares (QR by modified Gram-Schmidt); with `nonnegative=True`, features whose
 weight comes out negative are fixed at zero one at a time and the model is
 refitted (a simple active-set heuristic, not an exact NNLS solver). The
 intercept is unconstrained: it absorbs fixed overhead such as the call into
@@ -27,31 +27,37 @@ class LinearModel:
         return self.intercept + sum(w * row.get(f, 0.0) for f, w in self.weights.items())
 
 
-def _solve(a: list[list[float]], b: list[float]) -> list[float]:
-    """Gauss-Jordan elimination with partial pivoting."""
-    n = len(b)
-    m = [row[:] + [rhs] for row, rhs in zip(a, b)]
-    scale = max((abs(x) for row in a for x in row), default=1.0) or 1.0
-    for col in range(n):
-        pivot = max(range(col, n), key=lambda r: abs(m[r][col]))
-        if abs(m[pivot][col]) <= 1e-9 * scale:
-            raise ValueError("features are linearly dependent; drop or combine some")
-        m[col], m[pivot] = m[pivot], m[col]
-        for r in range(n):
-            if r != col:
-                factor = m[r][col] / m[col][col]
-                for c in range(col, n + 1):
-                    m[r][c] -= factor * m[col][c]
-    return [m[i][n] / m[i][i] for i in range(n)]
+# Relative size below which a column counts as a combination of earlier ones.
+_RANK_TOL = 1e-9
 
 
 def _ols(rows: list[Row], y: list[float], features: list[str]) -> tuple[float, list[float]]:
-    xs = [[1.0] + [r.get(f, 0.0) for f in features] for r in rows]
-    k = len(features) + 1
-    xtx = [[sum(x[i] * x[j] for x in xs) for j in range(k)] for i in range(k)]
-    xty = [sum(x[i] * t for x, t in zip(xs, y)) for i in range(k)]
-    sol = _solve(xtx, xty)
-    return sol[0], sol[1:]
+    """Least squares by modified Gram-Schmidt QR on unit-scaled columns.
+
+    Avoids the normal equations, which square the condition number: cycle
+    counts span several orders of magnitude across benchmarks.
+    """
+    cols = [[1.0] * len(rows)] + [[float(r.get(f, 0.0)) for r in rows] for f in features]
+    norms = [sum(x * x for x in c) ** 0.5 for c in cols]
+    if any(n == 0 for n in norms):
+        raise ValueError("features are linearly dependent; drop or combine some")
+    q = [[x / n for x in c] for c, n in zip(cols, norms)]
+    k = len(q)
+    r = [[0.0] * k for _ in range(k)]
+    for j in range(k):
+        for i in range(j):
+            r[i][j] = sum(a * b for a, b in zip(q[i], q[j]))
+            q[j] = [b - r[i][j] * a for a, b in zip(q[i], q[j])]
+        r[j][j] = sum(x * x for x in q[j]) ** 0.5
+        if r[j][j] <= _RANK_TOL:
+            raise ValueError("features are linearly dependent; drop or combine some")
+        q[j] = [x / r[j][j] for x in q[j]]
+    qty = [sum(a * b for a, b in zip(qi, y)) for qi in q]
+    coef = [0.0] * k
+    for i in reversed(range(k)):
+        coef[i] = (qty[i] - sum(r[i][j] * coef[j] for j in range(i + 1, k))) / r[i][i]
+    coef = [c / n for c, n in zip(coef, norms)]  # undo the column scaling
+    return coef[0], coef[1:]
 
 
 def fit(rows: list[Row], y: list[float], features: list[str],
@@ -86,7 +92,7 @@ def fit(rows: list[Row], y: list[float], features: list[str],
 
 
 def independent_features(rows: list[Row], features: list[str],
-                         tol: float = 1e-9) -> tuple[list[str], list[str]]:
+                         tol: float = _RANK_TOL) -> tuple[list[str], list[str]]:
     """Split `features` into a linearly independent subset and the rest.
 
     Features are taken in the given order (so list the preferred ones first);
@@ -109,10 +115,10 @@ def independent_features(rows: list[Row], features: list[str],
     kept, dropped = [], []
     for f in features:
         col = [float(r.get(f, 0.0)) for r in rows]
-        scale = max((abs(x) for x in col), default=0.0)
-        res = residual(col)
+        norm = sum(x * x for x in col) ** 0.5
+        res = residual([x / norm for x in col]) if norm else col
         size = sum(x * x for x in res) ** 0.5
-        if scale and size > tol * scale * max(1.0, n ** 0.5):
+        if norm and size > tol:
             basis.append([x / size for x in res])
             kept.append(f)
         else:
