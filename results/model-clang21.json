@@ -1,0 +1,50 @@
+{
+  "intercept": 91.98765290483098,
+  "weights": {
+    "compute": 0.8506252149732166,
+    "memory": 0.11268074883105057,
+    "control": 0.7421655518193312
+  },
+  "guest_overhead": 4005.0,
+  "paging_base": 18467.25,
+  "paging_per_page": 671.9902343750001,
+  "source": {
+    "results": "results/variants-clang21.json",
+    "created": "2026-10-19T16:34:05+00:00",
+    "toolchain": {
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "cargo-risczero": "cargo-risczero 3.0.6",
+      "r0vm": "risc0-r0vm 3.0.6",
+      "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "clang": "clang version 21.1.8",
+      "opt": "LLVM version 21.1.8",
+      "llc": "LLVM version 21.1.8"
+    },
+    "observations": 64,
+    "guest_overhead_range": [
+      4005,
+      4005
+    ]
+  },
+  "feature_definitions": {
+    "compute": [
+      "alu",
+      "mul",
+      "div",
+      "cmp",
+      "select",
+      "cast",
+      "address"
+    ],
+    "memory": [
+      "load",
+      "store"
+    ],
+    "control": [
+      "cond_branch",
+      "jump",
+      "ret"
+    ]
+  }
+}

@@ -1,0 +1,511 @@
+{
+  "results": "results/variants-clang21.json",
+  "feature_source": "static estimate",
+  "objective": "relative",
+  "feature_definitions": {
+    "compute": [
+      "alu",
+      "mul",
+      "div",
+      "cmp",
+      "select",
+      "cast",
+      "address"
+    ],
+    "memory": [
+      "load",
+      "store"
+    ],
+    "control": [
+      "cond_branch",
+      "jump",
+      "ret"
+    ]
+  },
+  "observations": 64,
+  "features": [
+    "compute",
+    "memory",
+    "control"
+  ],
+  "dropped_dependent_features": [],
+  "intercept": 91.98765290483098,
+  "weights": {
+    "compute": 0.8506252149732166,
+    "memory": 0.11268074883105057,
+    "control": 0.7421655518193312
+  },
+  "zeroed_by_nonnegativity": [],
+  "in_sample": {
+    "mean_abs": 0.0700719228982946,
+    "max_abs": 0.34851322168729815
+  },
+  "leave_one_benchmark_out": {
+    "branchy": {
+      "mean_abs": 0.015038501061935028,
+      "max_abs": 0.034748257981502835
+    },
+    "nested_fnv": {
+      "mean_abs": 0.06406419299835366,
+      "max_abs": 0.1435897894347829
+    },
+    "strided_rw": {
+      "mean_abs": 0.18289790583596527,
+      "max_abs": 0.3709877396733763
+    },
+    "xorshift": {
+      "mean_abs": 0.07108163055534872,
+      "max_abs": 0.17751318903335314
+    }
+  },
+  "predictions": [
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 102,
+      "predicted": 101.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 174,
+      "predicted": 169.8
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 894,
+      "predicted": 849.0
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 8094,
+      "predicted": 7641.5
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 104,
+      "predicted": 106.5
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 169,
+      "predicted": 169.8
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 799,
+      "predicted": 777.4
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 7099,
+      "predicted": 6853.1
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 112,
+      "predicted": 110.7
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 173,
+      "predicted": 169.7
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 751,
+      "predicted": 695.0
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 6601,
+      "predicted": 6029.5
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 112,
+      "predicted": 110.7
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 171,
+      "predicted": 166.4
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 739,
+      "predicted": 670.3
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 6351,
+      "predicted": 5617.8
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 181,
+      "predicted": 177.4
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 937,
+      "predicted": 925.4
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 8497,
+      "predicted": 8405.3
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 84097,
+      "predicted": 83204.6
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 166,
+      "predicted": 169.4
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 783,
+      "predicted": 802.3
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 6903,
+      "predicted": 7102.0
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 68103,
+      "predicted": 70099.1
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 164,
+      "predicted": 167.1
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 705,
+      "predicted": 739.3
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 6056,
+      "predicted": 6403.8
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 59606,
+      "predicted": 63117.1
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 160,
+      "predicted": 163.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 658,
+      "predicted": 705.0
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 5610,
+      "predicted": 6068.1
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 55104,
+      "predicted": 59626.1
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 110,
+      "predicted": 107.8
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 236,
+      "predicted": 228.8
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 1440,
+      "predicted": 1438.6
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 13564,
+      "predicted": 13537.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 109,
+      "predicted": 112.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 232,
+      "predicted": 233.0
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 1379,
+      "predicted": 1409.5
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 12849,
+      "predicted": 13174.3
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 115,
+      "predicted": 116.6
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 233,
+      "predicted": 233.7
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 1336,
+      "predicted": 1348.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 12469,
+      "predicted": 12563.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 115,
+      "predicted": 116.6
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 235,
+      "predicted": 231.3
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 1341,
+      "predicted": 1331.3
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 12391,
+      "predicted": 12258.0
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 66347,
+      "predicted": 70293.6
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 72710,
+      "predicted": 74309.3
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 136340,
+      "predicted": 114466.2
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 772640,
+      "predicted": 516034.8
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 49906,
+      "predicted": 57199.2
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 55707,
+      "predicted": 60755.7
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 113667,
+      "predicted": 96292.0
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 693267,
+      "predicted": 451654.3
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 41682,
+      "predicted": 50653.8
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 46934,
+      "predicted": 53977.6
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 99316,
+      "predicted": 87158.3
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 623116,
+      "predicted": 419034.7
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 37564,
+      "predicted": 47379.0
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 42572,
+      "predicted": 50585.7
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 92537,
+      "predicted": 82605.0
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 592139,
+      "predicted": 402724.9
+    }
+  ]
+}
