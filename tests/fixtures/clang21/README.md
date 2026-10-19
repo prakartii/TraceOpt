@@ -15,3 +15,13 @@ done
 
 Note: `sum_squares.ll` contains no loop. Clang replaced it with a closed form,
 so it cannot be used to study unrolling under Clang.
+
+`xorshift_u{2,4,8}.ll` are `xorshift.ll` after LLVM's runtime unroller:
+
+```bash
+opt -S -passes=loop-unroll -unroll-count=K -unroll-runtime \
+    tests/fixtures/clang21/xorshift.ll -o tests/fixtures/clang21/xorshift_uK.ll
+```
+
+Factor 2 handles the odd iteration with straight-line code; factors 4 and 8
+add a remainder (epilogue) loop that runs `n mod K` times.
