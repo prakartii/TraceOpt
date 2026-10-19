@@ -1,6 +1,6 @@
 import unittest
 
-from traceopt.calibrate import fit, leave_one_group_out, relative_errors
+from traceopt.calibrate import fit, independent_features, leave_one_group_out, relative_errors
 
 
 def synthetic(weights, intercept, points):
@@ -50,6 +50,25 @@ class FitTest(unittest.TestCase):
             fit(two_rows, [1.0, 2.0], ["a", "b"])
         with self.assertRaises(ValueError):
             fit([], [], ["a"])
+
+
+class IndependentFeaturesTest(unittest.TestCase):
+    def test_drops_multiples_sums_and_constants(self):
+        rows = [{"cmp": float(p), "branch": float(p), "alu": float(q),
+                 "both": float(p + q), "const": 5.0, "zero": 0.0} for p, q in POINTS]
+        kept, dropped = independent_features(
+            rows, ["alu", "branch", "cmp", "both", "const", "zero"])
+        self.assertEqual(kept, ["alu", "branch"])
+        self.assertEqual(dropped, ["cmp", "both", "const", "zero"])
+        fit(rows, [1.0 + r["alu"] + r["branch"] for r in rows], kept)  # no error
+
+    def test_order_decides_which_duplicate_is_kept(self):
+        rows = [{"cmp": float(p), "branch": float(p)} for p, _ in POINTS]
+        self.assertEqual(independent_features(rows, ["cmp", "branch"])[0], ["cmp"])
+
+    def test_large_magnitudes(self):
+        rows = [{"a": 1e6 * p, "b": 1e6 * q} for p, q in POINTS]
+        self.assertEqual(independent_features(rows, ["a", "b"])[0], ["a", "b"])
 
 
 class HeldOutTest(unittest.TestCase):

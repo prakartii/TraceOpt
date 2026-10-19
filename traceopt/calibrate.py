@@ -75,6 +75,41 @@ def fit(rows: list[Row], y: list[float], features: list[str],
     return LinearModel(intercept, weights, unidentified)
 
 
+def independent_features(rows: list[Row], features: list[str],
+                         tol: float = 1e-9) -> tuple[list[str], list[str]]:
+    """Split `features` into a linearly independent subset and the rest.
+
+    Features are taken in the given order (so list the preferred ones first);
+    one is kept if it is not a linear combination of the intercept and the
+    features kept before it. Uses Gram-Schmidt on the columns.
+    """
+    basis: list[list[float]] = []
+    n = len(rows)
+
+    def residual(col: list[float]) -> list[float]:
+        for b in basis:
+            dot = sum(x * y for x, y in zip(col, b))
+            col = [x - dot * y for x, y in zip(col, b)]
+        return col
+
+    one = [1.0] * n
+    norm = sum(x * x for x in one) ** 0.5
+    if norm:
+        basis.append([x / norm for x in one])
+    kept, dropped = [], []
+    for f in features:
+        col = [float(r.get(f, 0.0)) for r in rows]
+        scale = max((abs(x) for x in col), default=0.0)
+        res = residual(col)
+        size = sum(x * x for x in res) ** 0.5
+        if scale and size > tol * scale * max(1.0, n ** 0.5):
+            basis.append([x / size for x in res])
+            kept.append(f)
+        else:
+            dropped.append(f)
+    return kept, dropped
+
+
 def relative_errors(model: LinearModel, rows: list[Row], y: list[float]) -> list[float]:
     """(predicted - measured) / measured for each observation."""
     return [(model.predict(r) - t) / t for r, t in zip(rows, y)]
