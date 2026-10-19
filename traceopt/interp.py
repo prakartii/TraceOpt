@@ -40,6 +40,7 @@ class _Poison:
 
 
 POISON = _Poison()
+_MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ class Interpreter:
     def __init__(self, source: str):
         self.module = parse_module(source)
         self.globals = {name: type_size(ty) for name, ty in _GLOBAL_RE.findall(source)}
+        self._plans: dict[int, tuple] = {}
 
     def run(self, function: str, args: dict[str, int], max_steps: int = 50_000_000
             ) -> tuple[int | None, Counter]:
@@ -106,99 +108,144 @@ class Interpreter:
     def _value(self, token: str, env: dict, width: int | None = None,
                allow_poison: bool = False):
         """Value of a token. Poison may flow through phis but not be used."""
-        token = token.strip()
+        first = token[0]
+        if first == "%":
+            v = env.get(token[1:], _MISSING)
+            if v is _MISSING:
+                raise InterpError(f"unknown or unsupported value {token!r}")
+            if v is POISON and not allow_poison:
+                raise InterpError(f"use of poison value {token}")
+            if width is not None and v.__class__ is int:
+                v &= (1 << width) - 1
+            return v
+        if first.isdigit() or first == "-":
+            if width is None:
+                raise InterpError(f"untyped constant {token}")
+            return int(token) & ((1 << width) - 1)
         if token in ("poison", "undef"):
             if allow_poison:
                 return POISON
             raise InterpError(f"use of {token}")
-        if re.fullmatch(r"-?\d+", token):
-            if width is None:
-                raise InterpError(f"untyped constant {token}")
-            return int(token) & ((1 << width) - 1)
         if token in ("true", "false"):
             return int(token == "true")
-        if token.startswith("@"):
-            name = token[1:]
-            if name not in self.globals:
-                raise InterpError(f"unknown global {token}")
-            return Pointer(name, 0)
-        if token.startswith("%") and token[1:] in env:
-            v = env[token[1:]]
-            if v is POISON and not allow_poison:
-                raise InterpError(f"use of poison value {token}")
-            if width is not None and isinstance(v, int):
-                v &= (1 << width) - 1
-            return v
+        if first == "@" and token[1:] in self.globals:
+            return Pointer(token[1:], 0)
         raise InterpError(f"unknown or unsupported value {token!r}")
 
+    def _plan(self, inst: Instruction) -> tuple:
+        """The instruction parsed once into a tuple used by the step functions."""
+        plan = self._plans.get(id(inst))
+        if plan is None:
+            plan = self._plans[id(inst)] = self._parse(inst)
+        return plan
+
+    def _parse(self, inst: Instruction) -> tuple:
+        body = inst.text.split("=", 1)[1].strip() if inst.result else inst.text.strip()
+        body = body.split(", !", 1)[0]
+        op = inst.opcode
+        if op == "phi":
+            m = _PHI_RE.match(body)
+            ty = m.group(1)
+            width = int(ty[1:]) if ty.startswith("i") else None
+            incoming = {blk: val.strip() for val, blk in _INCOMING_RE.findall(m.group(2))}
+            return (op, width, incoming)
+        if op in _BINOPS:
+            m = _BINOP_RE.match(body)
+            if m:
+                return (op, int(m.group(2)), m.group(3).strip(), m.group(4).strip())
+        elif op == "icmp":
+            m = _ICMP_RE.match(body)
+            if m:
+                return (op, m.group(1), int(m.group(2)), m.group(3).strip(), m.group(4).strip())
+        elif op == "select":
+            m = _SELECT_RE.match(body)
+            if m:
+                return (op, m.group(1).strip(), int(m.group(2)), m.group(3).strip(),
+                        m.group(4).strip())
+        elif op in ("zext", "sext", "trunc"):
+            m = _CAST_RE.match(body)
+            if m:
+                return (op, int(m.group(2)), m.group(3).strip(), int(m.group(4)))
+        elif op == "getelementptr":
+            m = _GEP_RE.match(body)
+            if m:
+                ty = m.group(1).strip()
+                steps = []
+                indices = re.findall(r",\s*i(\d+)\s+([^,]+)", m.group(3))
+                for i, (w, tok) in enumerate(indices):
+                    steps.append((int(w), tok.strip(), type_size(ty)))
+                    if i + 1 < len(indices):
+                        ty = _element(ty)
+                return (op, m.group(2).strip(), steps)
+        elif op == "load":
+            m = _LOAD_RE.match(body)
+            if m:
+                return (op, int(m.group(1)), m.group(2).strip())
+        elif op == "store":
+            m = _STORE_RE.match(body)
+            if m:
+                return (op, int(m.group(1)), m.group(2).strip(), m.group(3).strip())
+        elif op == "ret":
+            words = body.split()
+            if words[1] == "void":
+                return (op, None, None)
+            return (op, int(words[1][1:]), words[2])
+        elif op == "br":
+            words = body.split()
+            if words[1] == "label":
+                return ("jmp", words[2].lstrip("%").rstrip(","))
+            t, f = re.findall(r"label\s+%([^,\s]+)", body)
+            return (op, words[2].rstrip(","), t, f)
+        raise InterpError(f"unsupported instruction: {inst.text}")
+
     def _phi(self, inst: Instruction, prev: str | None, env: dict):
-        m = _PHI_RE.match(inst.text.split("=", 1)[1].strip())
-        ty = m.group(1)
-        width = int(ty[1:]) if ty.startswith("i") else None
-        for val, blk in _INCOMING_RE.findall(m.group(2)):
-            if blk == prev:
-                return self._value(val, env, width, allow_poison=True)
-        raise InterpError(f"phi %{inst.result} has no incoming value from %{prev}")
+        _, width, incoming = self._plan(inst)
+        if prev not in incoming:
+            raise InterpError(f"phi %{inst.result} has no incoming value from %{prev}")
+        return self._value(incoming[prev], env, width, allow_poison=True)
 
     # -- instructions -------------------------------------------------------
 
     def _execute(self, inst: Instruction, env: dict, memory: dict) -> None:
-        body = inst.text.split("=", 1)[1].strip() if inst.result else inst.text.strip()
-        body = body.split(", !", 1)[0]
-        op = inst.opcode
+        plan = self._plan(inst)
+        op = plan[0]
         if op in _BINOPS:
-            m = _BINOP_RE.match(body)
-            w = int(m.group(2))
-            r = _binop(op, self._value(m.group(3), env, w), self._value(m.group(4), env, w), w)
+            _, w, a, b = plan
+            r = _binop(op, self._value(a, env, w), self._value(b, env, w), w)
             if r is None:
                 raise InterpError(f"undefined result: {inst.text}")
             env[inst.result] = r
         elif op == "icmp":
-            m = _ICMP_RE.match(body)
-            w = int(m.group(2))
-            env[inst.result] = _icmp(m.group(1), self._value(m.group(3), env, w),
-                                     self._value(m.group(4), env, w), w)
+            _, pred, w, a, b = plan
+            env[inst.result] = _icmp(pred, self._value(a, env, w), self._value(b, env, w), w)
         elif op == "select":
-            m = _SELECT_RE.match(body)
-            w = int(m.group(2))
-            c = self._value(m.group(1), env, 1)
-            env[inst.result] = self._value(m.group(3) if c else m.group(4), env, w)
+            _, c, w, t, f = plan
+            env[inst.result] = self._value(t if self._value(c, env, 1) else f, env, w)
         elif op in ("zext", "sext", "trunc"):
-            m = _CAST_RE.match(body)
-            src_w, dst_w = int(m.group(2)), int(m.group(4))
-            v = self._value(m.group(3), env, src_w)
+            _, src_w, tok, dst_w = plan
+            v = self._value(tok, env, src_w)
             if op == "sext":
                 v = to_signed(v, src_w)
             env[inst.result] = v & ((1 << dst_w) - 1)
         elif op == "getelementptr":
-            env[inst.result] = self._gep(body, env)
+            _, base_tok, steps = plan
+            base = self._value(base_tok, env)
+            if not isinstance(base, Pointer):
+                raise InterpError(f"getelementptr base is not a pointer: {inst.text}")
+            offset = base.offset
+            for w, tok, size in steps:
+                offset += to_signed(self._value(tok, env, w), w) * size
+            env[inst.result] = Pointer(base.base, offset)
         elif op == "load":
-            m = _LOAD_RE.match(body)
-            p = self._pointer(m.group(2), env, int(m.group(1)))
+            _, w, ptr = plan
+            p = self._pointer(ptr, env, w)
             env[inst.result] = memory.get((p.base, p.offset), 0)
         elif op == "store":
-            m = _STORE_RE.match(body)
-            w = int(m.group(1))
-            p = self._pointer(m.group(3), env, w)
-            memory[(p.base, p.offset)] = self._value(m.group(2), env, w)
+            _, w, val, ptr = plan
+            p = self._pointer(ptr, env, w)
+            memory[(p.base, p.offset)] = self._value(val, env, w)
         else:
             raise InterpError(f"unsupported instruction: {inst.text}")
-
-    def _gep(self, body: str, env: dict) -> Pointer:
-        m = _GEP_RE.match(body)
-        if not m:
-            raise InterpError(f"unsupported getelementptr: {body}")
-        ty, base = m.group(1).strip(), self._value(m.group(2), env)
-        if not isinstance(base, Pointer):
-            raise InterpError(f"getelementptr base is not a pointer: {body}")
-        indices = re.findall(r",\s*i(\d+)\s+([^,]+)", m.group(3))
-        offset = base.offset
-        for i, (w, tok) in enumerate(indices):
-            idx = to_signed(self._value(tok, env, int(w)), int(w))
-            offset += idx * type_size(ty)
-            if i + 1 < len(indices):
-                ty = _element(ty)
-        return Pointer(base.base, offset)
 
     def _pointer(self, token: str, env: dict, width: int) -> Pointer:
         p = self._value(token, env)
@@ -210,18 +257,15 @@ class Interpreter:
         return p
 
     def _terminator(self, inst: Instruction, env: dict):
-        words = inst.text.split()
-        if inst.opcode == "ret":
-            if words[1] == "void":
-                return (None,)
-            w = int(words[1][1:])
-            return (self._value(words[2], env, w),)
-        if inst.opcode == "br":
-            if words[1] == "label":
-                return words[2].lstrip("%").rstrip(",")
-            c = self._value(words[2].rstrip(","), env, 1)
-            targets = re.findall(r"label\s+%([^,\s]+)", inst.text)
-            return targets[0] if c else targets[1]
+        plan = self._plan(inst)
+        if plan[0] == "ret":
+            _, w, tok = plan
+            return (None,) if w is None else (self._value(tok, env, w),)
+        if plan[0] == "jmp":
+            return plan[1]
+        if plan[0] == "br":
+            _, cond, t, f = plan
+            return t if self._value(cond, env, 1) else f
         raise InterpError(f"unsupported terminator: {inst.text}")
 
 
