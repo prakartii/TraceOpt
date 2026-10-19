@@ -55,11 +55,21 @@ def _ols(rows: list[Row], y: list[float], features: list[str]) -> tuple[float, l
 
 
 def fit(rows: list[Row], y: list[float], features: list[str],
-        nonnegative: bool = True) -> LinearModel:
+        nonnegative: bool = True, drop_dependent: bool = False) -> LinearModel:
+    """Least-squares fit. Constant features are reported as unidentified.
+
+    With drop_dependent, features that are linear combinations of earlier
+    ones in this data are also reported as unidentified (weight 0) instead of
+    raising ValueError; used for held-out folds, where a feature can lose its
+    variation once a benchmark is removed.
+    """
     if len(rows) != len(y) or not rows:
         raise ValueError("need the same, non-zero number of rows and targets")
     unidentified = [f for f in features if len({r.get(f, 0.0) for r in rows}) == 1]
     active = [f for f in features if f not in unidentified]
+    if drop_dependent:
+        active, dependent = independent_features(rows, active)
+        unidentified += dependent
     if len(rows) < len(active) + 1:
         raise ValueError(f"{len(rows)} observations cannot fit {len(active) + 1} parameters")
 
@@ -122,6 +132,7 @@ def leave_one_group_out(rows: list[Row], y: list[float], groups: list[str],
     for g in sorted(set(groups)):
         train = [i for i, gi in enumerate(groups) if gi != g]
         test = [i for i, gi in enumerate(groups) if gi == g]
-        model = fit([rows[i] for i in train], [y[i] for i in train], features, nonnegative)
+        model = fit([rows[i] for i in train], [y[i] for i in train], features, nonnegative,
+                    drop_dependent=True)
         errors[g] = relative_errors(model, [rows[i] for i in test], [y[i] for i in test])
     return errors

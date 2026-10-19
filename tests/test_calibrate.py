@@ -44,6 +44,14 @@ class FitTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             fit(rows, y, ["a", "b"])
 
+    def test_drop_dependent_reports_unidentified(self):
+        rows = [{"a": float(p), "b": 2.0 * p, "c": float(q)} for p, q in POINTS]
+        y = [3.0 * r["a"] + r["c"] + 1 for r in rows]
+        m = fit(rows, y, ["a", "b", "c"], drop_dependent=True)
+        self.assertEqual(m.unidentified, ["b"])
+        self.assertEqual(m.weights["b"], 0.0)
+        self.assertAlmostEqual(m.weights["a"], 3.0, places=6)
+
     def test_too_few_observations(self):
         two_rows = [{"a": 1.0, "b": 3.0}, {"a": 2.0, "b": 1.0}]
         with self.assertRaises(ValueError):  # 2 observations, 3 parameters
@@ -79,6 +87,21 @@ class HeldOutTest(unittest.TestCase):
         self.assertEqual(sorted(errs), ["x", "y"])
         for e in errs.values():
             self.assertTrue(all(abs(v) < 1e-9 for v in e))
+
+    def test_feature_dependent_within_a_fold(self):
+        # "load" and "store" vary only in group z; without z they are both
+        # constant, and within z's fold they are fine.
+        rows, y, groups = [], [], []
+        for g, scale in (("x", 0.0), ("y", 0.0), ("z", 1.0)):
+            for p, q in POINTS:
+                r = {"alu": float(p), "branch": float(q), "load": scale * p * q,
+                     "store": scale * p * q}
+                rows.append(r)
+                y.append(2 * r["alu"] + r["branch"] + 4 * r["load"] + 5)
+                groups.append(g)
+        errs = leave_one_group_out(rows, y, groups, ["alu", "branch", "load"])
+        self.assertTrue(all(abs(v) < 1e-9 for v in errs["x"]))
+        self.assertTrue(any(abs(v) > 1e-3 for v in errs["z"]))  # load cost unseen
 
     def test_deviating_group_shows_error(self):
         rows, y = synthetic({"a": 3.0, "b": 2.0}, 7.0, POINTS * 3)
