@@ -201,7 +201,19 @@ def trip_count(fn: Function, loop: Loop, args: dict[str, int] | None = None) -> 
         if step is None or step <= 0 or start is None:
             continue
 
-        tested = {iv: start - step, nxt: start}  # value of `a` in v_k = a + k*step
+        # Value of `a` in v_k = a + k*step (k = 1, 2, ... counts iterations) for
+        # each tested value: iv itself, and any `iv + C` with constant C. The
+        # latter includes the next value (C = step) and, after unrolling, the
+        # intermediate copies (e.g. iv + 256 in a loop stepping by 512).
+        tested = {iv: start - step, nxt: start}
+        for inst in defs.values():
+            cm = _ADD_RE.match(_body(inst)) if inst.opcode == "add" else None
+            if not cm:
+                continue
+            x, y = cm.group(1).strip(), cm.group(2).strip()
+            other = y if x == iv else x if y == iv else None
+            if other is not None and re.fullmatch(r"-?\d+", other):
+                tested[f"%{inst.result}"] = start - step + int(other)
         if lhs in tested:
             a, bound_tok, p = tested[lhs], rhs, pred
         elif rhs in tested:

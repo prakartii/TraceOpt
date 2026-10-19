@@ -138,6 +138,27 @@ exit:
         (loop,) = find_loops(fn)
         self.assertEqual(trip_count(fn, loop), 64)  # i = 0, 256, ..., 16128
 
+    def test_compare_on_intermediate_unrolled_value(self):
+        # strided_rw's inner loop unrolled by 2: the counter steps by 512 and
+        # the exit test uses the second copy's index, i + 256.
+        src = """
+define void @f() {
+entry:
+  br label %loop
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  %i.mid = add nuw nsw i32 %i, 256
+  %i.next = add nuw nsw i32 %i, 512
+  %c = icmp samesign ult i32 %i.mid, 16128
+  br i1 %c, label %loop, label %exit
+exit:
+  ret void
+}
+"""
+        fn = parse_module(src).functions["f"]
+        (loop,) = find_loops(fn)
+        self.assertEqual(trip_count(fn, loop), 32)  # i = 0, 512, ..., 15872
+
 
 class TripCountNestedTest(unittest.TestCase):
     def test_nested(self):
