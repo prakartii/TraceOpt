@@ -10,13 +10,13 @@ Status values: Not started / In progress / Done / Blocked.
 
 | Phase | Weeks | Status |
 |---|---|---|
-| 0. Repository audit and feasibility | 1 | In progress (only proving memory vs. segment size left) |
+| 0. Repository audit and feasibility | 1 | Done except proving memory vs. segment size (#3) |
 | 1. IR analysis and baseline | 1–3 | Done (analyzer validated on Clang 21 IR against LLVM LoopInfo and an IR interpreter) |
-| 2. Initial proving-cost model | 3–4 | In progress (calibration measurements running) |
-| 3. First cost-aware optimization | 4–5 | In progress (`traceopt optimize` works; needs the fitted model) |
-| 4. Backend integration and reporting | 5–6 | Not started |
-| 5. Evaluation and testing | 6–7 | Not started |
-| 6. Finalization and demonstration | 8 | Not started |
+| 2. Initial proving-cost model | 3–4 | Done (docs/cost-model.md) |
+| 3. First cost-aware optimization | 4–5 | Done (`traceopt optimize`) |
+| 4. Backend integration and reporting | 5–6 | Done (`optimize --measure`, guest-only builds) |
+| 5. Evaluation and testing | 6–7 | First evaluation done (docs/experiments.md); broader benchmark set open |
+| 6. Finalization and demonstration | 8 | In progress (demo script done; clean-install check open, #26) |
 
 ## Phase 0 — Repository audit and feasibility (week 1)
 
