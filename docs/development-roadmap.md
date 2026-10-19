@@ -10,10 +10,10 @@ Status values: Not started / In progress / Done / Blocked.
 
 | Phase | Weeks | Status |
 |---|---|---|
-| 0. Repository audit and feasibility | 1 | In progress (Clang route blocked on LLVM install) |
-| 1. IR analysis and baseline | 1–3 | In progress (analyzer and GCC baseline done; real-IR validation pending) |
-| 2. Initial proving-cost model | 3–4 | In progress (segment model and fitting code done; calibration data pending) |
-| 3. First cost-aware optimization | 4–5 | In progress (decision logic done) |
+| 0. Repository audit and feasibility | 1 | In progress (only proving memory vs. segment size left) |
+| 1. IR analysis and baseline | 1–3 | Done (analyzer validated on Clang 21 IR against LLVM LoopInfo and an IR interpreter) |
+| 2. Initial proving-cost model | 3–4 | In progress (calibration measurements running) |
+| 3. First cost-aware optimization | 4–5 | In progress (`traceopt optimize` works; needs the fitted model) |
 | 4. Backend integration and reporting | 5–6 | Not started |
 | 5. Evaluation and testing | 6–7 | Not started |
 | 6. Finalization and demonstration | 8 | Not started |
@@ -26,15 +26,15 @@ Tasks:
 - [x] Audit the repository (one initial commit, README only).
 - [x] Choose RISC Zero as the primary backend, with SP1 as the fallback.
 - [x] Install Rust and the RISC Zero toolchain (3.0.6) in WSL Ubuntu.
-- [ ] Install LLVM/Clang in WSL Ubuntu (needs `sudo`).
+- [x] Install LLVM/Clang in WSL Ubuntu (21.1.8, unpacked without `sudo`).
 - [x] Build and run a minimal RISC Zero guest; record its cycle count.
 - [x] Link a C kernel into a RISC Zero guest (GCC route).
-- [ ] Link a Clang/LLVM-IR-compiled C kernel into a RISC Zero guest.
+- [x] Link a Clang/LLVM-IR-compiled C kernel into a RISC Zero guest.
 - [x] Measure peak memory of a small proof (2^15 segment: 303 MB).
 - [ ] Measure proving memory with capped segment sizes (a 2^20 segment was OOM-killed).
 - [x] Record accessible metrics: segments and total/user/paging/reserved cycles,
       plus in-guest kernel cycles. Proving time is available for small segments.
-      Code size is not yet measured.
+      Code size is measured from the linked guest ELF.
 
 **Deliverable:** `docs/feasibility.md` with commands, outputs, and blockers.
 **Completion criterion:** A simple program runs through the toolchain, or a
