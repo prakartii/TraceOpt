@@ -7,18 +7,23 @@ Method (documented in docs/architecture.md §4):
   function entry) and is split at conditional branches.
 - A block's frequency is its reach probability within its innermost region,
   multiplied by the trip counts of all enclosing loops (from `trip_count`).
-- Branch heuristic: a branch whose one side enters a loop with a known trip
-  count >= 1 (a loop guard), directly or through a preheader that only
-  jumps to the loop, always enters the loop. All other conditional branches
-  are split evenly. This is a heuristic, not a profile.
+- Branches whose condition can be computed from constants and the given
+  arguments (traceopt/evaluate.py) are taken exactly. This covers the
+  guards and remainder checks of runtime-unrolled loops.
+- Otherwise, a branch heuristic: a branch whose one side enters a loop with a
+  known trip count >= 1 (a loop guard), directly or through a preheader that
+  only jumps to the loop, always enters the loop. All other conditional
+  branches are split evenly. This is a heuristic, not a profile.
 
-If any loop's trip count is unknown, UnknownTripCount is raised.
+If a loop that may execute has an unknown trip count, UnknownTripCount is
+raised. Loops that are never reached need no trip count.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 
+from traceopt.evaluate import Evaluator
 from traceopt.features import block_counts
 from traceopt.ir import Function
 from traceopt.loops import Loop, find_loops, trip_count
@@ -39,12 +44,24 @@ def _innermost(loops: list[Loop]) -> dict[str, Loop | None]:
 def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[str, float]:
     """Estimated executions of each reachable block for one call."""
     loops = find_loops(fn)
+    by_header = {loop.header: loop for loop in loops}
     trips: dict[str, int] = {}
-    for loop in loops:
-        t = trip_count(fn, loop, args)
-        if t is None:
-            raise UnknownTripCount(f"trip count of loop at {loop.header!r} is unknown")
-        trips[loop.header] = t
+    evaluator = Evaluator(fn, args)
+
+    def trips_of(header: str) -> int:
+        if header not in trips:
+            t = trip_count(fn, by_header[header], args)
+            if t is None:
+                raise UnknownTripCount(f"trip count of loop at {header!r} is unknown")
+            trips[header] = t
+        return trips[header]
+
+    def branch_value(label: str) -> int | None:
+        """Value of the block's branch condition, if it can be computed."""
+        words = fn.block(label).terminator.text.split()
+        if len(words) < 3 or words[:2] != ["br", "i1"]:
+            return None
+        return evaluator.value(words[2].rstrip(","), 1)
 
     owner = _innermost(loops)
     top_children = [lp for lp in loops if lp.parent is None]
@@ -83,13 +100,13 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
 
         def enters_loop(t: str | None) -> bool:
             if t in child_by_header:
-                return trips[t] >= 1
+                return trips_of(t) >= 1
             if t is None or t not in nodes or len(succ[t]) != 1:
                 return False
             nxt = succ[t][0]
             return (
                 nxt in child_by_header
-                and trips[nxt] >= 1
+                and trips_of(nxt) >= 1
                 and fn.block(t).terminator.text.split()[1] == "label"
             )
 
@@ -100,7 +117,10 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
             n = ready.pop()
             targets = succ[n]
             weights = [1.0 / len(targets)] * len(targets) if targets else []
-            if len(targets) == 2:
+            known = branch_value(n) if len(targets) == 2 and n not in child_by_header else None
+            if known is not None:
+                weights = [1.0, 0.0] if known else [0.0, 1.0]
+            elif len(targets) == 2:
                 for i, t in enumerate(targets):
                     if enters_loop(t) and not enters_loop(targets[1 - i]):
                         weights = [0.0, 0.0]
@@ -116,7 +136,10 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
         for n in nodes:
             if n in child_by_header:
                 child = child_by_header[n]
-                solve(child, child.header, child.children, scale * reach[n] * trips[n])
+                if reach[n] == 0:
+                    freq.update((label, 0.0) for label in child.body)
+                    continue
+                solve(child, child.header, child.children, scale * reach[n] * trips_of(n))
             else:
                 freq[n] = scale * reach[n]
 

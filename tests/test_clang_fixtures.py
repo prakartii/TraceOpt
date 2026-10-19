@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-from traceopt.frequency import dynamic_counts
+from traceopt.frequency import block_frequencies, dynamic_counts
 from traceopt.ir import parse_module
 from traceopt.loops import find_loops, trip_count
 
@@ -79,6 +79,18 @@ class UnrolledFixtureTest(unittest.TestCase):
                 if n % k:
                     with self.subTest(k=k, n=n):
                         self.assertEqual(trip_count(fn, epilog, {"0": n}), n % k)
+
+    def test_xor_executions_are_preserved_by_unrolling(self):
+        # Unrolling must not change the real work: 3 xors per iteration of
+        # the original loop, for every factor and every n (including n < K
+        # and n mod K == 0, where some loops never run).
+        for name in ("xorshift", "xorshift_u2", "xorshift_u4", "xorshift_u8"):
+            fn = kernel(name)
+            xors = {b.label: sum(i.opcode == "xor" for i in b.instructions) for b in fn.blocks}
+            for n in (0, 1, 2, 3, 7, 8, 9, 1000, 1003):
+                with self.subTest(name=name, n=n):
+                    freq = block_frequencies(fn, {"0": n})
+                    self.assertEqual(sum(freq[b] * xors[b] for b in freq), 3 * n)
 
     def test_factor_two_has_no_remainder_loop(self):
         _, _, rest = self.loops_by_role(2)
