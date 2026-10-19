@@ -10,12 +10,19 @@
 //! `TRACEOPT_SEGMENT_PO2=<k>` caps segments at 2^k cycles. Smaller segments
 //! lower prover memory but add per-segment paging, so keep it fixed when
 //! comparing variants.
+//!
+//! `TRACEOPT_KERNEL_ELF=<path>` runs the kernel guest from that program
+//! binary (the `kernel.bin` risc0-build writes) instead of the one embedded
+//! at build time, so a new kernel variant only needs the guest rebuilt.
 
 use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use methods::{KERNEL_ELF, KERNEL_ID, PROBE_ELF, PROBE_ID};
-use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorImpl, Journal, SessionStats};
+use risc0_zkvm::{
+    compute_image_id, default_prover, sha::Digest, ExecutorEnv, ExecutorImpl, Journal,
+    SessionStats,
+};
 use serde_json::{json, Value};
 
 fn decode_output(guest: &str, journal: &Journal) -> Result<Value> {
@@ -49,9 +56,18 @@ fn main() -> Result<()> {
         Some(s) => s.parse().context("n must be a u32")?,
         None => 1000,
     };
-    let (elf, id) = match guest {
-        "probe" => (PROBE_ELF, PROBE_ID),
-        "kernel" => (KERNEL_ELF, KERNEL_ID),
+    let kernel_path = std::env::var("TRACEOPT_KERNEL_ELF").ok();
+    let loaded: Vec<u8>;
+    let (elf, id): (&[u8], Digest) = match guest {
+        "probe" => (PROBE_ELF, Digest::from(PROBE_ID)),
+        "kernel" => match &kernel_path {
+            Some(path) => {
+                loaded = std::fs::read(path).with_context(|| format!("reading {path}"))?;
+                let id = compute_image_id(&loaded).context("computing the image ID")?;
+                (&loaded, id)
+            }
+            None => (KERNEL_ELF, Digest::from(KERNEL_ID)),
+        },
         other => bail!("unknown guest {other:?}; expected probe or kernel"),
     };
 
@@ -72,6 +88,7 @@ fn main() -> Result<()> {
         "guest": guest,
         "n": n,
         "segment_limit_po2": segment_po2,
+        "kernel_elf": if guest == "kernel" { kernel_path.clone() } else { None },
     });
     match mode {
         "execute" => {
