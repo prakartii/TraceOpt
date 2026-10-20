@@ -1,0 +1,379 @@
+{
+  "model": "results/model-clang21.json",
+  "model_parameters": {
+    "intercept": 91.98765290483098,
+    "weights": {
+      "compute": 0.8506252149732166,
+      "memory": 0.11268074883105057,
+      "control": 0.7421655518193312
+    },
+    "guest_overhead": 4005.0,
+    "paging_base": 18467.25,
+    "paging_per_page": 671.9902343750001
+  },
+  "policy": {
+    "min_improvement": 0.05,
+    "max_code_growth": 16.0,
+    "uncertainty": 0.1
+  },
+  "cases": [
+    {
+      "benchmark": "strided_rw",
+      "n": 5,
+      "input": "n = 5 passes over a 64 KiB array",
+      "output": "a 32-bit checksum of the values written",
+      "why": "a memory-heavy kernel just above a power-of-two boundary",
+      "source": "benchmarks/strided_rw.c",
+      "source_code": "// Memory-intensive kernel: fills a 64 KiB static array, then performs n\n// passes of strided read-modify-write (1 KiB stride, 64 accesses per pass).\n// Intended to touch many distinct memory pages in the zkVM.\n#include <stdint.h>\n\n#define WORDS 16384u /* 64 KiB of uint32_t */\n#define STRIDE 256u  /* 1 KiB */\n\nstatic uint32_t buf[WORDS];\n\nuint32_t traceopt_kernel(uint32_t n) {\n  for (uint32_t i = 0; i < WORDS; i++) {\n    buf[i] = i * 2654435761u;\n  }\n  uint32_t acc = 0;\n  for (uint32_t r = 0; r < n; r++) {\n    for (uint32_t i = 0; i < WORDS; i += STRIDE) {\n      uint32_t k = (i + r) & (WORDS - 1);\n      acc = (acc ^ buf[k]) + r;\n      buf[k] = acc;\n    }\n  }\n  return acc;\n}\n",
+      "expected": 3528213632,
+      "selected": "unroll4",
+      "reason": "predicted padded total 131072 vs 262144 (50.0% lower)",
+      "variants": [
+        {
+          "name": "unroll1",
+          "factor": 1,
+          "code_bytes": 140,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17
+          ],
+          "ir_instructions": 30,
+          "executed": {
+            "compute": 67787,
+            "memory": 17024,
+            "control": 16717
+          }
+        },
+        {
+          "name": "unroll2",
+          "factor": 2,
+          "code_bytes": 420,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17
+          ],
+          "ir_instructions": 109,
+          "executed": {
+            "compute": 59438,
+            "memory": 17024,
+            "control": 8369
+          }
+        },
+        {
+          "name": "unroll4",
+          "factor": 4,
+          "code_bytes": 1160,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17
+          ],
+          "ir_instructions": 252,
+          "executed": {
+            "compute": 55264,
+            "memory": 17024,
+            "control": 4193
+          }
+        },
+        {
+          "name": "unroll8",
+          "factor": 8,
+          "code_bytes": 2944,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17
+          ],
+          "ir_instructions": 712,
+          "executed": {
+            "compute": 53185,
+            "memory": 17024,
+            "control": 2106
+          }
+        }
+      ],
+      "candidates": [
+        {
+          "name": "unroll1",
+          "predicted_user_cycles": 76083,
+          "paging_per_segment": 61475,
+          "padded_total": 262144,
+          "code_bytes": 140,
+          "note": "baseline",
+          "explanation": "the program as written; every other version is compared with it"
+        },
+        {
+          "name": "unroll2",
+          "predicted_user_cycles": 62786,
+          "paging_per_segment": 61475,
+          "padded_total": 131072,
+          "code_bytes": 420,
+          "note": "improvement not robust to 10% prediction error",
+          "explanation": "smaller bucket only if the prediction is accurate; a 10% prediction error would undo it: rejected as too risky"
+        },
+        {
+          "name": "unroll4",
+          "predicted_user_cycles": 56136,
+          "paging_per_segment": 62147,
+          "padded_total": 131072,
+          "code_bytes": 1160,
+          "note": "eligible",
+          "explanation": "uses a smaller bucket even if the prediction is pessimistic: accepted"
+        },
+        {
+          "name": "unroll8",
+          "predicted_user_cycles": 52819,
+          "paging_per_segment": 62819,
+          "padded_total": 131072,
+          "code_bytes": 2944,
+          "note": "code size 2944 B exceeds limit",
+          "explanation": "code grows to 2,944 bytes, more than 16x the original: rejected"
+        }
+      ],
+      "measured": {
+        "unroll1": {
+          "output": 3528213632,
+          "user_cycles": 73180,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1
+        },
+        "unroll4": {
+          "output": 3528213632,
+          "user_cycles": 48031,
+          "paging_cycles": 61398,
+          "total_cycles": 131072,
+          "segments": 1
+        },
+        "unroll8": {
+          "output": 3528213632,
+          "user_cycles": 43797,
+          "paging_cycles": 62699,
+          "total_cycles": 131072,
+          "segments": 1
+        }
+      }
+    },
+    {
+      "benchmark": "xorshift",
+      "n": 1000,
+      "input": "n = 1000 rounds of a random-number generator",
+      "output": "the generator's 32-bit state after n rounds",
+      "why": "unrolling saves cycles, but whether it saves proving work is uncertain",
+      "source": "benchmarks/xorshift.c",
+      "source_code": "// Simple loop with a loop-carried dependence: n rounds of xorshift32.\n// Unlike sum_squares, LLVM cannot replace this loop with a closed form,\n// so its cycle count scales with n.\n#include <stdint.h>\n\nuint32_t traceopt_kernel(uint32_t n) {\n  uint32_t x = 2463534242u;\n  for (uint32_t i = 0; i < n; i++) {\n    x ^= x << 13;\n    x ^= x >> 17;\n    x ^= x << 5;\n  }\n  return x;\n}\n",
+      "expected": 3298996588,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "variants": [
+        {
+          "name": "unroll1",
+          "factor": 1,
+          "code_bytes": 52,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17,
+            1000
+          ],
+          "ir_instructions": 15,
+          "executed": {
+            "compute": 8001,
+            "memory": 0,
+            "control": 1002
+          }
+        },
+        {
+          "name": "unroll2",
+          "factor": 2,
+          "code_bytes": 136,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17,
+            1000
+          ],
+          "ir_instructions": 46,
+          "executed": {
+            "compute": 7506,
+            "memory": 0,
+            "control": 507
+          }
+        },
+        {
+          "name": "unroll4",
+          "factor": 4,
+          "code_bytes": 216,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17,
+            1000
+          ],
+          "ir_instructions": 69,
+          "executed": {
+            "compute": 6756,
+            "memory": 0,
+            "control": 257
+          }
+        },
+        {
+          "name": "unroll8",
+          "factor": 8,
+          "code_bytes": 312,
+          "same_as": null,
+          "differential_failure": null,
+          "differential_inputs": [
+            0,
+            1,
+            2,
+            3,
+            5,
+            7,
+            8,
+            9,
+            16,
+            17,
+            1000
+          ],
+          "ir_instructions": 93,
+          "executed": {
+            "compute": 6381,
+            "memory": 0,
+            "control": 132
+          }
+        }
+      ],
+      "candidates": [
+        {
+          "name": "unroll1",
+          "predicted_user_cycles": 11646,
+          "paging_per_segment": 18467,
+          "padded_total": 65536,
+          "code_bytes": 52,
+          "note": "baseline",
+          "explanation": "the program as written; every other version is compared with it"
+        },
+        {
+          "name": "unroll2",
+          "predicted_user_cycles": 10858,
+          "paging_per_segment": 18467,
+          "padded_total": 65536,
+          "code_bytes": 136,
+          "note": "same padded size as baseline",
+          "explanation": "fewer cycles, but still rounded up to the same bucket: no saving"
+        },
+        {
+          "name": "unroll4",
+          "predicted_user_cycles": 10035,
+          "paging_per_segment": 18467,
+          "padded_total": 32768,
+          "code_bytes": 216,
+          "note": "improvement not robust to 10% prediction error",
+          "explanation": "smaller bucket only if the prediction is accurate; a 10% prediction error would undo it: rejected as too risky"
+        },
+        {
+          "name": "unroll8",
+          "predicted_user_cycles": 9623,
+          "paging_per_segment": 18467,
+          "padded_total": 32768,
+          "code_bytes": 312,
+          "note": "improvement not robust to 10% prediction error",
+          "explanation": "smaller bucket only if the prediction is accurate; a 10% prediction error would undo it: rejected as too risky"
+        }
+      ],
+      "measured": {
+        "unroll1": {
+          "output": 3298996588,
+          "user_cycles": 12099,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1
+        },
+        "unroll8": {
+          "output": 3298996588,
+          "user_cycles": 10356,
+          "paging_cycles": 18661,
+          "total_cycles": 65536,
+          "segments": 1
+        }
+      }
+    }
+  ],
+  "evaluation": {
+    "file": "results/evaluation-clang21.json",
+    "counts": {
+      "kept": 12,
+      "won": 1,
+      "missed": 3,
+      "worse": 0
+    },
+    "bucket_right": 15,
+    "cases": 16
+  }
+}
