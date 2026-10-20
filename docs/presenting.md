@@ -54,7 +54,11 @@ all eight stages live, and asks again. Things worth knowing:
 - **They can write their own kernel.** Any C file with
   `uint32_t traceopt_kernel(uint32_t n)`, no library calls. Open an editor in
   WSL (`nano mine.c`), write it, then `scripts/live.sh mine.c 100`.
-  `examples/kernels/` has two to start from.
+  `examples/kernels/` has two to start from. Loops, `switch`, recursion,
+  2D arrays, structs, lookup tables and 64-bit math all work. Floating point
+  runs, but its unrolled versions cannot be checked, so the original is kept.
+  Anything unsupported gives a one-line "stopped: ..." message, never a
+  crash.
 - **Large n is fine.** n = 10,000,000 for xorshift runs 80 million cycles in
   79 segments in a few seconds. Above 2^31 predicted cycles the zkVM run is
   skipped, and stage 7 says so: TraceOpt's own prediction is what decides.
@@ -99,3 +103,7 @@ Good inputs to suggest if they ask for "an interesting one":
   `python3 scripts/demo.py` directly.
 - No time or WSL trouble: `scripts/demo.sh --no-measure` shows the
   predictions only, or present from `results/demo-report.html`.
+- Run one live session at a time. Two sessions build the zkVM guest in the
+  same directory, and the second waits for the first. If stage 7 hangs for
+  more than a minute, a build left over from an interrupted run is holding
+  the lock: press Ctrl+C, run `pkill -x cargo`, and start again.
