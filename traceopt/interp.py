@@ -7,8 +7,9 @@ of traceopt/frequency.py, independently of the analysis code.
 Supported: integer phi/arithmetic/icmp/select/casts (shared semantics with
 traceopt/evaluate.py), the integer intrinsics in INTRINSICS (which Clang
 emits for min/max, abs, bit counts, byte swaps, rotates, and saturating
-arithmetic), br, ret, getelementptr over iN and [N x T] types, and aligned
-same-width loads and stores to module globals. Global
+arithmetic), br, ret, getelementptr over iN and [N x T] types, aligned
+same-width loads and stores to module globals and to local arrays (alloca),
+llvm.memset with zero, and llvm.lifetime markers (no-ops). Global
 initializers other than `zeroinitializer` are not supported. Anything else
 raises InterpError.
 """
@@ -32,6 +33,9 @@ _STORE_RE = re.compile(r"^store\s+(?:volatile\s+)?i(\d+)\s+([^,]+),\s*ptr\s+([^,
 _ARRAY_RE = re.compile(r"^\[(\d+)\s+x\s+(.+)\]$")
 _CALL_RE = re.compile(r"^(?:(?:tail|musttail|notail)\s+)?call\s+(?:.*?\s)?i(\d+)\s+"
                       r"@llvm\.([a-z.]+?)\.i\d+\((.*)\)")
+_VOID_CALL_RE = re.compile(r"^(?:(?:tail|musttail|notail)\s+)?call\s+void\s+"
+                           r"@llvm\.(lifetime\.start|lifetime\.end|memset)\.[\w.]+\((.*)\)")
+_ALLOCA_RE = re.compile(r"^alloca\s+(?:inalloca\s+)?(\[.*?\]|i\d+)\s*(?:,|$)")
 
 
 class InterpError(RuntimeError):
@@ -113,12 +117,14 @@ class Interpreter:
         self.module = parse_module(source)
         self.globals = {name: type_size(ty) for name, ty in _GLOBAL_RE.findall(source)}
         self._plans: dict[int, tuple] = {}
+        self._sizes: dict[str, int] = dict(self.globals)
 
     def run(self, function: str, args: dict[str, int], max_steps: int = 50_000_000
             ) -> tuple[int | None, Counter]:
         """Return value and per-block execution counts of one call."""
         fn = self.module.functions[function]
         memory: dict[tuple[str, int], int] = {}
+        self._sizes = dict(self.globals)
         env: dict[str, object] = {p: args[p] for p in fn.params}
         counts: Counter = Counter()
         prev, label = None, fn.entry.label
@@ -227,6 +233,16 @@ class Interpreter:
             m = _STORE_RE.match(body)
             if m:
                 return (op, int(m.group(1)), m.group(2).strip(), m.group(3).strip())
+        elif op == "alloca":
+            m = _ALLOCA_RE.match(body)
+            if m:
+                return (op, type_size(m.group(1)))
+        elif op == "call" and _VOID_CALL_RE.match(body):
+            m = _VOID_CALL_RE.match(body)
+            args = [a.split() for a in m.group(2).split(",")]
+            if m.group(1) != "memset":
+                return ("nop",)
+            return ("memset", args[0][-1], args[1][-1], int(args[2][0][1:]), args[2][-1])
         elif op == "call":
             m = _CALL_RE.match(body)
             if m and m.group(2) in INTRINSICS:
@@ -294,6 +310,26 @@ class Interpreter:
             _, w, val, ptr = plan
             p = self._pointer(ptr, env, w)
             memory[(p.base, p.offset)] = self._value(val, env, w)
+        elif op == "nop":
+            pass
+        elif op == "alloca":
+            # A fresh object each time the alloca runs; its contents start at 0
+            # (reading uninitialized memory would be undefined behavior anyway).
+            name = f"%{inst.result}#{len(self._sizes)}"
+            self._sizes[name] = plan[1]
+            env[inst.result] = Pointer(name, 0)
+            for key in [k for k in memory if k[0] == name]:
+                del memory[key]
+        elif op == "memset":
+            _, ptr, val, len_w, length = plan
+            p = self._value(ptr, env)
+            n = self._value(length, env, len_w)
+            if not isinstance(p, Pointer) or not 0 <= p.offset <= self._sizes[p.base] - n:
+                raise InterpError(f"out-of-bounds memset: {inst.text}")
+            if self._value(val, env, 8) != 0:
+                raise InterpError(f"memset with a nonzero value is not supported: {inst.text}")
+            for key in [k for k in memory if k[0] == p.base and p.offset <= k[1] < p.offset + n]:
+                del memory[key]
         elif op == "call":
             _, name, w, args = plan
             env[inst.result] = _intrinsic(name, w, [self._value(t, env, aw) for aw, t in args])
@@ -305,7 +341,7 @@ class Interpreter:
         if not isinstance(p, Pointer):
             raise InterpError(f"not a pointer: {token}")
         size = (width + 7) // 8
-        if p.offset % size or not 0 <= p.offset <= self.globals[p.base] - size:
+        if p.offset % size or not 0 <= p.offset <= self._sizes[p.base] - size:
             raise InterpError(f"unaligned or out-of-bounds access @{p.base}+{p.offset}")
         return p
 
