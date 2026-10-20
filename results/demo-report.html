@@ -68,6 +68,22 @@ svg .tick { stroke: var(--muted); stroke-dasharray: 3 3; }
 svg .tick-label { fill: var(--muted); }
 svg .used { fill: var(--used); }
 svg .pad { fill: var(--pad); }
+@media print {
+  :root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+    --bg: #ffffff; --panel: #ffffff; --text: #1f2328; --muted: #5d6670;
+    --line: #d9dde3; --accent: #2f5d9e; --used: #2f5d9e; --pad: #e7c9a0;
+    --good: #1f7a3f; --bad: #b42318; --soft: #f1f3f6; --code: #f7f7f4;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 14mm 12mm; }
+  body { font-size: 12px; }
+  main { max-width: none; padding: 0; }
+  h2 { break-before: page; border-top: none; margin-top: 0; }
+  h2:first-of-type { break-before: auto; }
+  h3, .cards, .flow { break-after: avoid; }
+  .panel, pre, tr, .card, .flow div { break-inside: avoid; }
+  .scroll { overflow: visible; }
+}
 .legend { display: flex; gap: 16px; font-size: .85rem; color: var(--muted); margin: 4px 0; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
   vertical-align: -1px; margin-right: 4px; }
