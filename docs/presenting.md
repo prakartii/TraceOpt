@@ -41,6 +41,41 @@ Start `scripts/demo.sh`. It stops after every step; press Enter to go on.
 | Evaluation | 16 cases | "12 cases had nothing to gain, 1 win was taken, 3 were missed, and TraceOpt never made things worse." |
 | Closing | Limits | Read the limits out: small kernels, one optimization, executor cycle counts rather than full proofs, tests rather than proofs of equivalence. |
 
+## When the audience chooses the inputs
+
+Run `scripts/live.sh` and let them type. It asks for a program (1–5, a
+kernel name, or a path to a C file) and any n from 0 to 4,294,967,295, runs
+all eight stages live, and asks again. Things worth knowing:
+
+- **The expected answer is independent of TraceOpt.** Stage 2 compiles the C
+  file natively with the host clang and runs it; for built-in kernels the
+  Python reference is shown as well. Stage 8 compares the zkVM's answer with
+  it.
+- **They can write their own kernel.** Any C file with
+  `uint32_t traceopt_kernel(uint32_t n)`, no library calls. Open an editor in
+  WSL (`nano mine.c`), write it, then `scripts/live.sh mine.c 100`.
+  `examples/kernels/` has two to start from.
+- **Large n is fine.** n = 10,000,000 for xorshift runs 80 million cycles in
+  79 segments in a few seconds. Above 2^31 predicted cycles the zkVM run is
+  skipped, and stage 7 says so: TraceOpt's own prediction is what decides.
+- **Loops whose count depends on data** (e.g. Collatz in
+  `examples/kernels/collatz.c`): TraceOpt says it cannot predict the cost and
+  keeps the original. The answer is still checked in the zkVM.
+- **Undefined behavior** (e.g. dividing by n with n = 0): stage 2 reports the
+  native crash and stops, because C defines no correct answer.
+- Stage 4 takes 5–15 s on the memory-heavy kernel (every version runs in the
+  Python IR interpreter); the rest takes a few seconds.
+
+Good inputs to suggest if they ask for "an interesting one":
+
+| Command | What it shows |
+|---|---|
+| `strided_rw 5` | unrolling 4x halves the proved size, confirmed by the zkVM |
+| `xorshift 10000000` | multi-segment run; unrolling 8x saves about 22% |
+| `xorshift 1000` | the tempting 8x is rejected as too risky |
+| `nested_fnv 3000` | every version rejected as too close to a bucket edge; the evaluation shows one would have won (a missed win) |
+| `examples/kernels/collatz.c 300` | data-dependent loop: no prediction, original kept |
+
 ## Likely questions
 
 - **Why not just measure every version in the zkVM?** For these small
