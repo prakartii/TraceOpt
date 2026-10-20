@@ -39,8 +39,8 @@ from traceopt.frequency import dynamic_counts  # noqa: E402
 from traceopt.ir import parse_module  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
 from traceopt.optimize import FUNCTION, optimize  # noqa: E402
-from traceopt.present import (bucket_bar, explain_note, factor_label, fmt,  # noqa: E402
-                              power_of_two_ladder, unpadded)
+from traceopt.present import (OUTCOMES, bucket_bar, explain_note, factor_label,  # noqa: E402
+                              fmt, outcome, power_of_two_ladder, unpadded)
 
 CASES = [
     {
@@ -362,18 +362,12 @@ def evaluation_summary(path: Path, say: Narrator) -> dict:
         conv = r["measured"]["conventional"]["total_cycles"]
         tro = r["measured"]["traceopt"]["total_cycles"]
         best = r["best_variant_total"]
-        if tro > base:
-            outcome, key = s.red("worse than original"), "worse"
-        elif tro < base:
-            outcome, key = s.green("win taken"), "won"
-        elif best < base:
-            outcome, key = "win missed", "missed"
-        else:
-            outcome, key = s.dim("nothing to gain; kept original"), "kept"
+        key = outcome(r)
+        color = {"worse": s.red, "won": s.green, "kept": s.dim}.get(key, str)
         counts[key] += 1
         bucket_right += r["predicted"]["traceopt"]["padded_total"] == tro
         print(f"  {r['benchmark']:12} {r['n']:>5} {fmt(base):>11} {fmt(conv):>11} {fmt(tro):>11} "
-              f"{fmt(best):>14}  {outcome}")
+              f"{fmt(best):>14}  {color(OUTCOMES[key])}")
     print()
     say.say(f"Nothing to gain, original kept : {counts['kept']}")
     say.say(f"Win available and taken        : {counts['won']}")
