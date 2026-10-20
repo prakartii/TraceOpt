@@ -485,7 +485,8 @@ TraceOpt/
 │   ├── experiments.md      evaluation results
 │   └── feasibility.md      Phase 0 measurements and blockers
 ├── examples/
-│   └── candidates.json     input for `traceopt decide`
+│   ├── candidates.json     input for `traceopt decide`
+│   └── kernels/            custom kernels to try in live mode
 ├── results/                curated measurement outputs (JSON)
 │   ├── baseline-gcc.json           GCC baseline, all five benchmarks
 │   ├── variants-clang21.json       calibration measurements (64 variants)
@@ -503,6 +504,7 @@ TraceOpt/
 │   ├── crosscheck_loops.py analyzer loops vs. LLVM LoopInfo
 │   ├── demo.sh             narrated demonstration (runs demo.py)
 │   ├── demo.py             the demo itself; --html writes the report
+│   ├── live.sh / live.py   live mode: any program and input, stage by stage
 │   ├── evaluate.py         baseline / -O2 / TraceOpt comparison
 │   ├── fit_model.py        fits the cost model, reports held-out error
 │   ├── install_llvm_user.sh  LLVM without sudo
@@ -524,6 +526,7 @@ TraceOpt/
     ├── segments.py         RISC Zero segment and padding model
     ├── present.py          plain-language labels and text bar charts
     ├── html_report.py      self-contained HTML demo report
+    ├── native.py           native host build: independent expected answers
     ├── calibrate.py        least-squares fit, held-out error
     ├── model.py            the calibrated cost model
     ├── decision.py         cost-aware candidate selection
