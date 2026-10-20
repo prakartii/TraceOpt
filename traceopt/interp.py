@@ -5,8 +5,10 @@ executes. This gives exact block counts to compare with the static estimates
 of traceopt/frequency.py, independently of the analysis code.
 
 Supported: integer phi/arithmetic/icmp/select/casts (shared semantics with
-traceopt/evaluate.py), br, ret, getelementptr over iN and [N x T] types,
-and aligned same-width loads and stores to module globals. Global
+traceopt/evaluate.py), the integer intrinsics in INTRINSICS (which Clang
+emits for min/max, abs, bit counts, byte swaps, rotates, and saturating
+arithmetic), br, ret, getelementptr over iN and [N x T] types, and aligned
+same-width loads and stores to module globals. Global
 initializers other than `zeroinitializer` are not supported. Anything else
 raises InterpError.
 """
@@ -28,6 +30,8 @@ _GEP_RE = re.compile(r"^getelementptr\s+(?:(?:inbounds|nuw|nusw)\s+)*(.+?),\s*pt
 _LOAD_RE = re.compile(r"^load\s+(?:volatile\s+)?i(\d+),\s*ptr\s+([^,]+)")
 _STORE_RE = re.compile(r"^store\s+(?:volatile\s+)?i(\d+)\s+([^,]+),\s*ptr\s+([^,]+)")
 _ARRAY_RE = re.compile(r"^\[(\d+)\s+x\s+(.+)\]$")
+_CALL_RE = re.compile(r"^(?:(?:tail|musttail|notail)\s+)?call\s+(?:.*?\s)?i(\d+)\s+"
+                      r"@llvm\.([a-z.]+?)\.i\d+\((.*)\)")
 
 
 class InterpError(RuntimeError):
@@ -41,6 +45,44 @@ class _Poison:
 
 POISON = _Poison()
 _MISSING = object()
+
+
+def _intrinsic(name: str, w: int, a: list) -> object:
+    """Result of an integer intrinsic on width-w operands (POISON where LLVM says so)."""
+    mask = (1 << w) - 1
+    if name == "umax":
+        return max(a[0], a[1])
+    if name == "umin":
+        return min(a[0], a[1])
+    if name == "smax":
+        return max(a[0], a[1], key=lambda v: to_signed(v, w))
+    if name == "smin":
+        return min(a[0], a[1], key=lambda v: to_signed(v, w))
+    if name == "abs":
+        if a[1] and a[0] == 1 << (w - 1):
+            return POISON
+        return abs(to_signed(a[0], w)) & mask
+    if name == "ctpop":
+        return bin(a[0]).count("1")
+    if name in ("ctlz", "cttz"):
+        if a[0] == 0:
+            return POISON if a[1] else w
+        return w - a[0].bit_length() if name == "ctlz" else (a[0] & -a[0]).bit_length() - 1
+    if name == "bswap":
+        return int.from_bytes(a[0].to_bytes(w // 8, "little"), "big")
+    if name in ("fshl", "fshr"):
+        k = a[2] % w
+        joined = (a[0] << w) | a[1]
+        return ((joined << k) >> w) & mask if name == "fshl" else (joined >> k) & mask
+    if name == "uadd.sat":
+        return min(a[0] + a[1], mask)
+    if name == "usub.sat":
+        return max(a[0] - a[1], 0)
+    raise InterpError(f"unsupported intrinsic llvm.{name}")
+
+
+INTRINSICS = ("umax", "umin", "smax", "smin", "abs", "ctpop", "ctlz", "cttz", "bswap",
+              "fshl", "fshr", "uadd.sat", "usub.sat")
 
 
 @dataclass(frozen=True)
@@ -185,6 +227,14 @@ class Interpreter:
             m = _STORE_RE.match(body)
             if m:
                 return (op, int(m.group(1)), m.group(2).strip(), m.group(3).strip())
+        elif op == "call":
+            m = _CALL_RE.match(body)
+            if m and m.group(2) in INTRINSICS:
+                args = []
+                for arg in m.group(3).split(","):
+                    words = arg.split()
+                    args.append((int(words[0][1:]), words[-1]))
+                return (op, m.group(2), int(m.group(1)), args)
         elif op == "ret":
             words = body.split()
             if words[1] == "void":
@@ -244,6 +294,9 @@ class Interpreter:
             _, w, val, ptr = plan
             p = self._pointer(ptr, env, w)
             memory[(p.base, p.offset)] = self._value(val, env, w)
+        elif op == "call":
+            _, name, w, args = plan
+            env[inst.result] = _intrinsic(name, w, [self._value(t, env, aw) for aw, t in args])
         else:
             raise InterpError(f"unsupported instruction: {inst.text}")
 
