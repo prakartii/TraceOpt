@@ -342,6 +342,36 @@ page in Chrome).
 Presenting it to someone new? See [docs/presenting.md](docs/presenting.md)
 for what to say at each step and likely questions.
 
+### Live mode: any program, any input (WSL)
+
+```bash
+scripts/live.sh                                # asks for a program and n, repeatedly
+scripts/live.sh xorshift 777                   # a built-in kernel
+scripts/live.sh examples/kernels/poly_hash.c 12345   # your own C kernel
+```
+
+Each run prints eight stages as they happen, with their timings:
+
+| Stage | What happens |
+|---|---|
+| 1 | The program and what the input means |
+| 2 | The **expected answer**, computed without TraceOpt: a native build with the host clang, and the Python reference for built-in kernels |
+| 3 | Compile to LLVM IR; the loops TraceOpt finds and how many times each runs for this n |
+| 4 | Build the 1x/2x/4x/8x versions; check each gives the same answers in the IR interpreter (including at this n, up to 2,000) |
+| 5 | Predicted cycles and proved (padded) size of each version, with bar charts |
+| 6 | The decision and a reason for every version |
+| 7 | Run the original and the chosen version in the RISC Zero executor |
+| 8 | Verdict: zkVM answer vs expected, prediction vs measurement, proving work saved |
+
+**Your own kernel:** any C file defining `uint32_t traceopt_kernel(uint32_t n)`.
+It runs without an operating system, so it may use headers such as
+`<stdint.h>` but no library functions (`printf`, `malloc`). Local arrays,
+loops, branches, and helper functions that Clang inlines are fine. Inputs are
+0 … 4,294,967,295. Inputs whose predicted proved size exceeds 2^31 cycles
+skip the zkVM run (`--max-cycles` changes the limit). Undefined behavior such
+as division by zero is reported instead of compared. Examples are in
+[`examples/kernels/`](examples/kernels/).
+
 ### Run a benchmark in the zkVM (WSL)
 
 ```bash
