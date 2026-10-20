@@ -277,7 +277,8 @@ def run_case(case: dict, model: CostModel, policy: Policy, work: Path, say: Narr
                        f"({1 - sel.padded_total / base.padded_total:.0%} less proving work)."))
     say.wait()
 
-    record = {**case, "expected": expected, "selected": result.decision.selected,
+    record = {**case, "source": str(src.relative_to(ROOT)), "source_code": src.read_text(),
+              "expected": expected, "selected": result.decision.selected,
               "reason": result.decision.reason, "variants": variants,
               "candidates": [{"name": r.name, "predicted_user_cycles": r.predicted_user_cycles,
                               "paging_per_segment": r.paging_per_segment,
