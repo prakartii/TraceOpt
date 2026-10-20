@@ -20,12 +20,14 @@ KERNEL_ELF = TARGET / "riscv-guest/methods/kernel/riscv32im-risc0-zkvm-elf/relea
 KERNEL_BIN = KERNEL_ELF.with_suffix(".bin")
 
 
-def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = False) -> None:
+def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = False,
+          quiet: bool = False) -> None:
     """Build the kernel guest from C source (GCC route) or a RISC-V object.
 
     With guest_only, only the guests are rebuilt; run the result with
     execute(..., kernel_elf=KERNEL_BIN). The host must have been built once
-    with a version that supports TRACEOPT_KERNEL_ELF.
+    with a version that supports TRACEOPT_KERNEL_ELF. With quiet, cargo's
+    progress output is captured (it is kept on the error if the build fails).
     """
     if (src is None) == (obj is None):
         raise ValueError("give exactly one of src and obj")
@@ -40,7 +42,8 @@ def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = F
     else:
         env["TRACEOPT_KERNEL_OBJ"] = str(obj)
     subprocess.run([str(ROOT / "scripts/build_backend.sh")], env=env, check=True,
-                   stdout=subprocess.DEVNULL)
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.PIPE if quiet else None, text=True)
 
 
 def execute(n: int, segment_po2: int | None = None, kernel_elf: Path | None = None) -> dict:

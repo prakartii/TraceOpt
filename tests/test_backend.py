@@ -46,6 +46,13 @@ class BuildArgumentsTest(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs["env"]["TRACEOPT_KERNEL_ELF"],
                              str(backend.KERNEL_BIN))
 
+    def test_quiet_build_captures_progress(self):
+        with mock.patch("subprocess.run") as run:
+            backend.build(obj=Path("k.o"))
+            self.assertIsNone(run.call_args.kwargs["stderr"])
+            backend.build(obj=Path("k.o"), quiet=True)
+            self.assertEqual(run.call_args.kwargs["stderr"], backend.subprocess.PIPE)
+
     def test_missing_tool_reports_unavailable(self):
         self.assertEqual(backend.tool_version("definitely-not-a-tool-xyz"), "unavailable")
 
