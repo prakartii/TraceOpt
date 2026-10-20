@@ -16,7 +16,7 @@ Status values: Not started / In progress / Done / Blocked.
 | 3. First cost-aware optimization | 4–5 | Done (`traceopt optimize`) |
 | 4. Backend integration and reporting | 5–6 | Done (`optimize --measure`, guest-only builds) |
 | 5. Evaluation and testing | 6–7 | First evaluation done (docs/experiments.md); broader benchmark set open |
-| 6. Finalization and demonstration | 8 | In progress (demo script done; clean-install check open, #26) |
+| 6. Finalization and demonstration | 8 | In progress (narrated demo, HTML report, and presenting guide done; clean-install check open, #26) |
 
 ## Phase 0 — Repository audit and feasibility (week 1)
 
@@ -119,7 +119,9 @@ documented command.
 Tasks:
 - Verify the setup instructions on a clean WSL environment.
 - Polish error messages and tests.
-- Prepare a demo on one representative benchmark.
+- Prepare a demo on one representative benchmark. *(Done: `scripts/demo.sh`
+  narrates two kernels end to end; `results/demo-report.html`;
+  docs/presenting.md.)*
 - Final limitations and future-work section.
 
 **Completion criterion:** Another developer can follow the README, run the
