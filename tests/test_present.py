@@ -1,7 +1,7 @@
 import unittest
 
 from traceopt.present import (EMPTY, FULL, bucket_bar, explain_note, factor_label, fmt,
-                              power_of_two_ladder, unpadded)
+                              outcome, power_of_two_ladder, unpadded)
 
 
 class PresentTest(unittest.TestCase):
@@ -43,6 +43,20 @@ class PresentTest(unittest.TestCase):
     def test_power_of_two_ladder(self):
         self.assertEqual(power_of_two_ladder(100_000, 262_144), [65536, 131072, 262144])
         self.assertEqual(power_of_two_ladder(131072, 131072), [131072])
+
+
+def record(base, chosen, best):
+    return {"measured": {"baseline": {"total_cycles": base},
+                         "traceopt": {"total_cycles": chosen}},
+            "best_variant_total": best}
+
+
+class OutcomeTest(unittest.TestCase):
+    def test_outcomes(self):
+        self.assertEqual(outcome(record(262144, 131072, 131072)), "won")
+        self.assertEqual(outcome(record(65536, 65536, 65536)), "kept")
+        self.assertEqual(outcome(record(131072, 131072, 65536)), "missed")
+        self.assertEqual(outcome(record(65536, 131072, 65536)), "worse")
 
 
 if __name__ == "__main__":

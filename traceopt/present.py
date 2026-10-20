@@ -80,3 +80,22 @@ def power_of_two_ladder(low: int, high: int) -> list[int]:
     while out[-1] < high:
         out.append(out[-1] * 2)
     return out
+
+
+OUTCOMES = {
+    "kept": "nothing to gain; kept original",
+    "won": "win taken",
+    "missed": "win missed",
+    "worse": "worse than original",
+}
+
+
+def outcome(record: dict) -> str:
+    """Classify one evaluation record (scripts/evaluate.py) by measured padded total."""
+    base = record["measured"]["baseline"]["total_cycles"]
+    chosen = record["measured"]["traceopt"]["total_cycles"]
+    if chosen > base:
+        return "worse"
+    if chosen < base:
+        return "won"
+    return "missed" if record["best_variant_total"] < base else "kept"
