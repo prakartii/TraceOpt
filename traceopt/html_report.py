@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from html import escape
 
-from traceopt.present import (OUTCOMES, explain_note, factor_label, fmt, outcome,
+from traceopt.present import (explain_note, factor_label, fmt, outcome,
                               power_of_two_ladder, unpadded)
 
 CSS = """
@@ -74,6 +74,7 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .badge.worse { color: var(--bad); border-color: var(--bad); }
 .badge.missed { color: var(--accent); border-color: var(--accent); }
 .badge.kept { color: var(--muted); }
+.nw { white-space: nowrap; }
 .io { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0; }
 .io dt { color: var(--muted); }
 .io dd { margin: 0; }
@@ -124,6 +125,14 @@ def bucket_svg(rows: list[tuple[str, int, int]], width: int = 900) -> str:
 LEGEND = ('<div class="legend"><span><i style="background:var(--used)"></i>cycles the run '
           'needs</span><span><i style="background:var(--pad)"></i>padding to the power of two '
           '(proved but wasted)</span><span>dashed lines: power-of-two sizes</span></div>')
+
+
+SHORT_OUTCOMES = {"kept": "no gain possible", "won": "win taken", "missed": "win missed",
+                  "worse": "worse"}
+
+
+def _version(name: str) -> str:
+    return f'<span class="nw">{escape(factor_label(name))}</span>'
 
 
 def _table(head: list[str], rows: list[list[str]], numeric: set[int] = frozenset(),
@@ -195,7 +204,7 @@ def _case(i: int, c: dict, policy: dict) -> str:
             check = f'<span class="no">no: {escape(v["differential_failure"])}</span>'
         else:
             check = f'<span class="yes">yes</span>, on {len(v["differential_inputs"])} inputs'
-        vrows.append([factor_label(v["name"]), f'{fmt(v["code_bytes"])} B',
+        vrows.append([_version(v["name"]), f'{fmt(v["code_bytes"])} B',
                       str(v["ir_instructions"])]
                      + [fmt(v["executed"][f]) for f in v["executed"]] + [check])
     feats = list(c["variants"][0]["executed"])
@@ -210,7 +219,7 @@ def _case(i: int, c: dict, policy: dict) -> str:
     prow = []
     for r in cands:
         used = unpadded(r["predicted_user_cycles"], r["paging_per_segment"])
-        prow.append([factor_label(r["name"]), fmt(r["predicted_user_cycles"]),
+        prow.append([_version(r["name"]), fmt(r["predicted_user_cycles"]),
                      fmt(r["paging_per_segment"]), fmt(used), f'<b>{fmt(r["padded_total"])}</b>'])
     out.append(_table(["version", "program", "paging", "needed", "proved as"], prow,
                       numeric={1, 2, 3, 4}))
@@ -225,14 +234,15 @@ def _case(i: int, c: dict, policy: dict) -> str:
     drows, dcls = [], []
     for r in c["candidates"]:
         chosen = r["name"] == c["selected"]
-        drows.append(['<span class="yes">✔ chosen</span>' if chosen else "✘",
-                      factor_label(r["name"]),
+        mark = ('<span class="yes nw">✔ chosen</span>' if chosen
+                else "–" if r["note"] == "baseline" else "✘")
+        drows.append([mark, _version(r["name"]),
                       escape(explain_note(r["note"], policy["min_improvement"],
                                           policy["max_code_growth"]))])
         dcls.append("chosen" if chosen else "")
     for v in c["variants"]:
         if v["same_as"]:
-            drows.append(["✘", factor_label(v["name"]),
+            drows.append(["✘", _version(v["name"]),
                           f"LLVM produced the same code as {factor_label(v['same_as'])}"])
             dcls.append("")
     out.append(_table(["", "version", "why"], drows, row_class=dcls))
@@ -255,7 +265,7 @@ def _case(i: int, c: dict, policy: dict) -> str:
         for name, m in c["measured"].items():
             r = rows[name]
             ok = m["output"] == c["expected"]
-            mrows.append([factor_label(name) + (" (chosen)" if name == c["selected"] else ""),
+            mrows.append([_version(name) + (" <b>(chosen)</b>" if name == c["selected"] else ""),
                           str(m["output"]),
                           '<span class="yes">yes</span>' if ok else '<span class="no">NO</span>',
                           fmt(r["predicted_user_cycles"]), fmt(m["user_cycles"]),
@@ -294,7 +304,7 @@ def _case(i: int, c: dict, policy: dict) -> str:
 def _evaluation(i: int, ev: dict, fit: dict | None) -> str:
     recs = ev["records"]
     keys = [outcome(r) for r in recs]
-    counts = {k: keys.count(k) for k in OUTCOMES}
+    counts = {k: keys.count(k) for k in SHORT_OUTCOMES}
     right = sum(r["predicted"]["traceopt"]["padded_total"]
                 == r["measured"]["traceopt"]["total_cycles"] for r in recs)
     ns = sorted({r["n"] for r in recs})
@@ -309,10 +319,11 @@ def _evaluation(i: int, ev: dict, fit: dict | None) -> str:
         m = r["measured"]
         rows.append([f'<code>{escape(r["benchmark"])}</code>', str(r["n"]),
                      fmt(m["baseline"]["total_cycles"]), fmt(m["conventional"]["total_cycles"]),
-                     f'{fmt(m["traceopt"]["total_cycles"])} '
-                     f'<span class="muted">({factor_label(r["selected"])})</span>',
+                     f'{fmt(m["traceopt"]["total_cycles"])} <span class="muted nw">'
+                     f'({"original" if r["selected"] == "unroll1" else factor_label(r["selected"])})'
+                     '</span>',
                      fmt(r["best_variant_total"]),
-                     f'<span class="badge {k}">{OUTCOMES[k]}</span>'])
+                     f'<span class="badge {k}">{SHORT_OUTCOMES[k]}</span>'])
     out.append(_table(["kernel", "n", "original (-O1, no unroll)", "clang -O2", "TraceOpt",
                        "best possible", "outcome"], rows, numeric={1, 2, 3, 4, 5}))
     out.append(_table(["outcome", "cases"], [

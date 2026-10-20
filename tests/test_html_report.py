@@ -102,6 +102,7 @@ class HtmlReportTest(unittest.TestCase):
         self.assertIn("<b>2/3</b>", self.page)       # exact predictions
         self.assertIn("up to 50%", self.page)
         self.assertIn("win missed", self.page)
+        self.assertIn("no gain possible", self.page)
         self.assertIn("1.5%", self.page)              # leave-one-out error
 
     def test_case_shows_decision_and_measurement(self):
