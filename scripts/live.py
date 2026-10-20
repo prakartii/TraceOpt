@@ -358,6 +358,12 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     return ok
 
 
+def unsupported(e: Exception) -> str:
+    """Message for an error that no stage anticipated."""
+    return (f"this program uses something TraceOpt does not support yet "
+            f"({type(e).__name__}: {e})")
+
+
 def ask(prompt: str) -> str:
     try:
         return input(prompt).strip()
@@ -387,6 +393,8 @@ def interactive(args, model, policy, st: Stages) -> int:
                 not args.no_measure)
         except StageError as e:
             print(s.red(f"\n  stopped: {e}"))
+        except Exception as e:  # keep the session alive on inputs TraceOpt cannot handle
+            print(s.red(f"\n  stopped: {unsupported(e)}"))
 
 
 def main() -> int:
@@ -422,6 +430,9 @@ def main() -> int:
                  not args.no_measure)
     except StageError as e:
         print(st.s.red(f"\n  stopped: {e}"), file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(st.s.red(f"\n  stopped: {unsupported(e)}"), file=sys.stderr)
         return 1
     return 0 if ok else 1
 
