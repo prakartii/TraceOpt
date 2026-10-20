@@ -271,7 +271,7 @@ verified on Ubuntu 26.04 in WSL.
 | RISC Zero C/C++ toolchain | 2024.1.5 (GCC 13.2.0, `riscv32-unknown-elf`) |
 | Host Rust | 1.99.0 |
 | Python | 3.10+ (CI: 3.10 and 3.12) |
-| LLVM/Clang/LLD | 21.1.8 (Ubuntu packages; CI also runs the LLVM tests with LLVM 18) |
+| LLVM/Clang/LLD | 21.1.8 (Ubuntu packages; CI runs the LLVM tests and the demo with LLVM 21 from apt.llvm.org) |
 
 ### Backend (WSL)
 
