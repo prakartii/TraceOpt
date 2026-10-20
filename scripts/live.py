@@ -232,8 +232,10 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
             check = "reference for the others"
         elif v.same_as:
             check = f"same machine code as {factor_label(v.same_as)}"
+        elif v.differential_failure and ": returned " in v.differential_failure:
+            check = s.red(f"NO, different answer ({v.differential_failure})")
         elif v.differential_failure:
-            check = s.red(f"NO ({v.differential_failure})")
+            check = s.yellow(f"could not check ({v.differential_failure}); rejected to be safe")
         else:
             check = s.green(f"yes, on {len(v.differential_inputs)} inputs")
         line = f"{factor_label(v.name):26} {fmt(v.code_bytes) + ' B':>10}  {check:28}"
