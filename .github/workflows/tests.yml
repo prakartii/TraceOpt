@@ -25,17 +25,23 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   llvm:
-    # Runs the tests that need clang/opt/llc (skipped in the job above),
-    # with the LLVM preinstalled on the runner image.
+    # Runs the tests that need clang/opt/llc (skipped in the job above) with
+    # LLVM 21, the version the fixtures and results were made with: the
+    # runner's preinstalled LLVM 18 cannot read Clang 21 IR (samesign,
+    # getelementptr nuw).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install LLVM 21 (apt.llvm.org)
+        run: |
+          wget -q https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 21
       - name: Put LLVM on PATH
         run: |
-          dir=$(ls -d /usr/lib/llvm-* | sort -V | tail -1)/bin
+          dir=/usr/lib/llvm-21/bin
           echo "$dir" >> "$GITHUB_PATH"
           "$dir/clang" --version
       - name: Run unit tests including LLVM tests
