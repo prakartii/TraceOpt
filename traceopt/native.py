@@ -9,6 +9,7 @@ have no Python reference in tests/reference.py.
 
 from __future__ import annotations
 
+import signal
 import subprocess
 from pathlib import Path
 
@@ -51,6 +52,13 @@ def run(exe: Path, n: int, timeout: float = 120.0) -> int:
                               timeout=timeout)
     except subprocess.TimeoutExpired as e:
         raise NativeError(f"native run did not finish in {timeout:g} s") from e
+    if proc.returncode < 0:
+        sig = signal.Signals(-proc.returncode).name
+        hint = {"SIGFPE": "an arithmetic error such as division by zero",
+                "SIGSEGV": "an out-of-bounds memory access"}.get(sig, "a crash")
+        raise NativeError(f"the program crashed natively on this input ({sig}: {hint}). "
+                          "In C that is undefined behavior, so there is no expected "
+                          "answer to compare with")
     if proc.returncode != 0:
         raise NativeError(f"native run failed with exit code {proc.returncode}")
     return int(proc.stdout.strip())

@@ -36,6 +36,16 @@ class NativeRunTest(unittest.TestCase):
             exe = native.build(src, Path(tmp))
             self.assertEqual(native.run(exe, (1 << 32) - 1), (1 << 32) - 1)
 
+    def test_crash_is_explained(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "div.c"
+            src.write_text("#include <stdint.h>\n"
+                           "uint32_t traceopt_kernel(uint32_t n) { return 1000u / n; }\n")
+            exe = native.build(src, Path(tmp))
+            self.assertEqual(native.run(exe, 8), 125)
+            with self.assertRaisesRegex(native.NativeError, "SIGFPE.*division by zero"):
+                native.run(exe, 0)
+
     def test_build_error_is_reported(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "bad.c"
