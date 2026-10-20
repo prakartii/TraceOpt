@@ -22,6 +22,7 @@ without library calls. Every stage prints as it finishes:
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -134,8 +135,18 @@ def parse_n(text: str) -> int:
 
 def measure(obj: Path, n: int) -> dict:
     t = time.monotonic()
-    backend.build(obj=obj, guest_only=True, quiet=True)
-    report = backend.execute(n, kernel_elf=backend.KERNEL_BIN)
+    try:
+        backend.build(obj=obj, guest_only=True, quiet=True)
+    except subprocess.CalledProcessError as e:
+        errors = [ln.strip() for ln in (e.stderr or "").splitlines()
+                  if "undefined reference" in ln or "error" in ln.lower()]
+        raise StageError("the zkVM guest could not be built with this kernel (a kernel may "
+                         "not call library functions such as printf or malloc):\n"
+                         + "\n".join(dict.fromkeys(errors[:6]))) from None
+    try:
+        report = backend.execute(n, kernel_elf=backend.KERNEL_BIN)
+    except subprocess.CalledProcessError as e:
+        raise StageError(f"the zkVM run failed:\n{(e.stderr or '').strip()[-800:]}") from None
     s = report["stats"]
     return {"output": report["result"]["output"], "user_cycles": s["user_cycles"],
             "paging_cycles": s["paging_cycles"], "total_cycles": s["total_cycles"],
@@ -154,6 +165,9 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
 
     # 1. Program and input --------------------------------------------------
     st.begin(1, "Program and input")
+    if FUNCTION not in src.read_text():
+        raise StageError(f"{src.name} must define `uint32_t {FUNCTION}(uint32_t n)`, the "
+                         "function TraceOpt optimizes and the zkVM runs")
     for i, line in enumerate(src.read_text().splitlines(), 1):
         print(f"      {s.dim(f'{i:3}')}  {line}")
     if builtin:
@@ -185,7 +199,10 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     try:
         base_ir = toolchain.emit_base_ir(src, work / "base.ll")
     except Exception as e:  # clang's message is the useful part
-        raise StageError(f"clang could not compile the program:\n{e}") from None
+        raise StageError(f"clang could not compile the program for RISC-V:\n{e}\n"
+                         "Kernels run without an operating system: only headers such as "
+                         "<stdint.h>, <stddef.h> and <stdbool.h> are available, and no "
+                         "library functions (printf, malloc, ...).") from None
     module = parse_module(base_ir.read_text())
     if FUNCTION not in module.functions:
         raise StageError(f"the program must define `uint32_t {FUNCTION}(uint32_t n)`")
