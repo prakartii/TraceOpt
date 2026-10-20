@@ -55,6 +55,11 @@ class DecisionTest(unittest.TestCase):
         d = decide(BASE, [cand("unroll4", 8000)], Policy(uncertainty=0.1))
         self.assertEqual(d.selected, "unroll4")
 
+    def test_rows_record_paging(self):
+        d = decide(BASE, [cand("a", 9000)])
+        self.assertEqual([r.paging_per_segment for r in d.rows],
+                         [BASE.paging_per_segment, 18635])
+
     def test_bound_equals_padded_without_uncertainty(self):
         d = decide(BASE, [cand("a", 9000)])
         self.assertTrue(all(r.padded_total_bound == r.padded_total for r in d.rows))

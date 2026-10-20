@@ -45,6 +45,8 @@ class Row:
     # Padded total at the unfavorable edge of the uncertainty band: (1 + u)
     # for candidates, (1 - u) for the baseline. Equal to padded_total if u = 0.
     padded_total_bound: int | None = None
+    # Predicted paging cycles per segment (for reports).
+    paging_per_segment: int | None = None
 
 
 @dataclass(frozen=True)
@@ -81,7 +83,8 @@ def decide(baseline: Candidate, candidates: list[Candidate],
     base_padded = _padded(baseline, policy)
     base_bound = _padded(baseline, policy, 1 - u)
     rows = [Row(baseline.name, base_padded, baseline.predicted_user_cycles,
-                baseline.code_bytes, False, "baseline", base_bound)]
+                baseline.code_bytes, False, "baseline", base_bound,
+                baseline.paging_per_segment)]
     if base_padded is None or baseline.code_bytes is None:
         return Decision(baseline.name, "baseline prediction unavailable; keeping baseline", rows)
 
@@ -104,7 +107,7 @@ def decide(baseline: Candidate, candidates: list[Candidate],
             note = "eligible"
         ok = note == "eligible"
         rows.append(Row(c.name, padded, c.predicted_user_cycles, c.code_bytes, ok, note,
-                        bound))
+                        bound, c.paging_per_segment))
         if ok:
             eligible.append((bound, padded, c.predicted_user_cycles, c.code_bytes, c))
 
