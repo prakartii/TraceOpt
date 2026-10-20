@@ -40,3 +40,5 @@ jobs:
           "$dir/clang" --version
       - name: Run unit tests including LLVM tests
         run: python -m unittest discover -s tests -v
+      - name: Run the narrated demo (predictions only, no zkVM)
+        run: python scripts/demo.py --no-pause --no-measure --html demo-report.html
