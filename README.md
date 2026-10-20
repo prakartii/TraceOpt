@@ -108,7 +108,7 @@ roadmap checklists, not measurements.
 | 3. Cost-aware optimization | Pick an unroll factor or keep the baseline | Done: `traceopt optimize` with differential tests and an uncertainty margin | 100% |
 | 4. Backend integration and reporting | Automated build → run → report | Done: `--measure`, guest-only builds (17 s per variant) | ~90% |
 | 5. Evaluation | Baseline vs. `-O2` vs. TraceOpt | First evaluation done (16 cases); larger benchmark set pending | ~70% |
-| 6. Finalization and demo | Clean setup check, demo, write-up | Demo script done; clean-install check pending | ~40% |
+| 6. Finalization and demo | Clean setup check, demo, write-up | Narrated demo, HTML report, presenting guide done; clean-install check pending | ~60% |
 
 **Overall: roughly 85%.** The full pipeline works; what remains is
 broadening the evaluation and polishing.
