@@ -305,17 +305,36 @@ python -m traceopt --help
 
 ## Usage
 
-### Demo (WSL, ~20 seconds after the backend is built)
+### Demo (WSL, about a minute after the backend is built)
 
 ```bash
 scripts/build_backend.sh   # once
-scripts/demo.sh
+scripts/demo.sh            # narrated; press Enter between steps
+scripts/demo.sh --no-pause --html results/demo-report.html   # also writes the HTML report
 ```
 
-It compares the analyzer's estimates with exact counts, lets TraceOpt
-choose an unroll factor for `strided_rw` (n = 5: the padded size halves) and
-`xorshift` (n = 1000: the baseline is kept), and measures each choice in
-the RISC Zero executor next to its prediction.
+The demo explains every step in plain language for two kernels,
+`strided_rw` (n = 5: the proved size halves) and `xorshift` (n = 1000: the
+original is kept):
+
+1. the C program, its input, and the expected answer (from the Python
+   reference);
+2. the unrolled versions LLVM builds, their code size, and the answer
+   check in TraceOpt's IR interpreter;
+3. the operations each version executes, its predicted cycles, and a bar
+   chart of the power-of-two size the prover charges;
+4. the decision, with a reason for every version;
+5. the RISC Zero run: the answer the zkVM returned, and measured next to
+   predicted cycles for the original, the choice, and the most tempting
+   rejected version.
+
+It ends with the 16-case evaluation from `results/evaluation-clang21.json`.
+`--no-measure` skips the zkVM runs.
+
+**Report page:** [`results/demo-report.html`](results/demo-report.html) is
+the same walk-through as one page with charts, generated from a measured run
+(`results/demo-run.json`). Open it in any browser, or rebuild it without
+WSL: `python scripts/make_report.py`.
 
 ### Run a benchmark in the zkVM (WSL)
 
