@@ -48,7 +48,8 @@ def explain_note(note: str, min_improvement: float = 0.05,
         return (f"code grows to {int(m.group(1)):,} bytes, more than "
                 f"{max_code_growth:g}x the original: rejected")
     if note == "failed differential test":
-        return "gave a different answer from the original on a test input: rejected"
+        return ("gave a different answer from the original on a test input, or could not "
+                "be checked: rejected")
     if note == "prediction unavailable":
         return "its cost could not be predicted (unknown loop count): rejected"
     return note
