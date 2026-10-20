@@ -457,17 +457,21 @@ TraceOpt/
 │   ├── fit-clang21.json            fit report (static features)
 │   ├── fit-clang21-exact.json      fit report (exact interpreter counts)
 │   ├── model-clang21.json          the cost model `traceopt optimize` uses
-│   └── evaluation-clang21.json     baseline / -O2 / TraceOpt evaluation
+│   ├── evaluation-clang21.json     baseline / -O2 / TraceOpt evaluation
+│   ├── demo-run.json               a measured run of the narrated demo
+│   └── demo-report.html            HTML report built from demo-run.json
 ├── scripts/
 │   ├── build_backend.sh    builds the backend (TRACEOPT_GUEST_ONLY=1: guest only)
 │   ├── check_kernel.sh     runs one benchmark and checks its output
 │   ├── compile_kernel.sh   C -> IR -> unroll -> RISC-V object
 │   ├── crosscheck_loops.py analyzer loops vs. LLVM LoopInfo
-│   ├── demo.sh             one-command demonstration
+│   ├── demo.sh             narrated demonstration (runs demo.py)
+│   ├── demo.py             the demo itself; --html writes the report
 │   ├── evaluate.py         baseline / -O2 / TraceOpt comparison
 │   ├── fit_model.py        fits the cost model, reports held-out error
 │   ├── install_llvm_user.sh  LLVM without sudo
 │   ├── llvm_env.sh         puts LLVM on PATH
+│   ├── make_report.py      HTML report from saved results (no WSL needed)
 │   ├── merge_results.py    replaces re-measured records
 │   ├── run_baseline.py     GCC baseline measurements
 │   ├── run_variants.py     calibration measurements
@@ -482,6 +486,8 @@ TraceOpt/
     ├── footprint.py        data pages touched (paging feature)
     ├── interp.py           IR interpreter (ground truth for the analyzer)
     ├── segments.py         RISC Zero segment and padding model
+    ├── present.py          plain-language labels and text bar charts
+    ├── html_report.py      self-contained HTML demo report
     ├── calibrate.py        least-squares fit, held-out error
     ├── model.py            the calibrated cost model
     ├── decision.py         cost-aware candidate selection
