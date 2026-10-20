@@ -368,9 +368,13 @@ Each run prints eight stages as they happen, with their timings:
 
 **Your own kernel:** any C file defining `uint32_t traceopt_kernel(uint32_t n)`.
 It runs without an operating system, so it may use headers such as
-`<stdint.h>` but no library functions (`printf`, `malloc`). Local arrays,
-loops, branches, and helper functions that Clang inlines are fine. Inputs are
-0 … 4,294,967,295. Inputs whose predicted proved size exceeds 2^31 cycles
+`<stdint.h>` but no library functions (`printf`, `malloc`). Loops, `if` and
+`switch`, helper functions and recursion, 8- to 64-bit integers (signed or
+unsigned), global and local arrays (also 2D), structs, lookup tables and
+strings all work: every one of these was tried in live mode with the zkVM
+answer checked. Floating point compiles and runs in the zkVM, but TraceOpt's
+answer checker does not support it, so unrolled versions are rejected to be
+safe and the original is kept. Inputs are 0 … 4,294,967,295. Inputs whose predicted proved size exceeds 2^31 cycles
 skip the zkVM run (`--max-cycles` changes the limit). Undefined behavior such
 as division by zero is reported instead of compared. Examples are in
 [`examples/kernels/`](examples/kernels/).
