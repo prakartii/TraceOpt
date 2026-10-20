@@ -335,6 +335,9 @@ It ends with the 16-case evaluation from `results/evaluation-clang21.json`.
 the same walk-through as one page with charts, generated from a measured run
 (`results/demo-run.json`). Open it in any browser, or rebuild it without
 WSL: `python scripts/make_report.py`.
+A PDF copy for sending is in
+[`results/demo-report.pdf`](results/demo-report.pdf) (printed from the HTML
+page in Chrome).
 
 Presenting it to someone new? See [docs/presenting.md](docs/presenting.md)
 for what to say at each step and likely questions.
