@@ -38,6 +38,7 @@ from traceopt.decision import Policy  # noqa: E402
 from traceopt.frequency import dynamic_counts  # noqa: E402
 from traceopt.ir import parse_module  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
+from traceopt.html_report import render  # noqa: E402
 from traceopt.optimize import FUNCTION, optimize  # noqa: E402
 from traceopt.present import (OUTCOMES, bucket_bar, explain_note, factor_label,  # noqa: E402
                               fmt, outcome, power_of_two_ladder, unpadded)
@@ -409,6 +410,10 @@ def main() -> int:
     parser.add_argument("--no-measure", action="store_true",
                         help="skip the zkVM runs (predictions only)")
     parser.add_argument("--json", type=Path, help="also write everything shown to this file")
+    parser.add_argument("--html", type=Path,
+                        help="also write the HTML report (traceopt/html_report.py) to this file")
+    parser.add_argument("--fit", type=Path, default=ROOT / "results/fit-clang21.json",
+                        help="fit report whose model accuracy the HTML report shows")
     args = parser.parse_args()
 
     if not toolchain.available():
@@ -427,19 +432,25 @@ def main() -> int:
     cases = [run_case(c, model, policy, args.work, say, do_measure) for c in CASES]
     evaluation = evaluation_summary(args.evaluation, say)
     closing(say, evaluation)
+    run = {
+        "model": str(args.model.relative_to(ROOT)) if args.model.is_relative_to(ROOT)
+        else str(args.model),
+        "model_parameters": {"intercept": model.intercept, "weights": model.weights,
+                             "guest_overhead": model.guest_overhead,
+                             "paging_base": model.paging_base,
+                             "paging_per_page": model.paging_per_page},
+        "policy": {"min_improvement": policy.min_improvement,
+                   "max_code_growth": policy.max_code_growth,
+                   "uncertainty": policy.uncertainty},
+        "cases": cases, "evaluation": evaluation,
+    }
     if args.json:
-        args.json.write_text(json.dumps({
-            "model": str(args.model.relative_to(ROOT)) if args.model.is_relative_to(ROOT)
-            else str(args.model),
-            "model_parameters": {"intercept": model.intercept, "weights": model.weights,
-                                 "guest_overhead": model.guest_overhead,
-                                 "paging_base": model.paging_base,
-                                 "paging_per_page": model.paging_per_page},
-            "policy": {"min_improvement": policy.min_improvement,
-                       "max_code_growth": policy.max_code_growth,
-                       "uncertainty": policy.uncertainty},
-            "cases": cases, "evaluation": evaluation,
-        }, indent=2) + "\n")
+        args.json.write_text(json.dumps(run, indent=2) + "\n", encoding="utf-8")
+    if args.html:
+        fit = json.loads(args.fit.read_text()) if args.fit.exists() else None
+        args.html.write_text(render(run, json.loads(args.evaluation.read_text()), fit),
+                             encoding="utf-8")
+        say.say(f"\nHTML report written to {args.html}")
     return 0
 
 
