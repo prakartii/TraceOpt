@@ -67,6 +67,9 @@ For the first prototype, the scope is deliberately narrow:
   against measured RISC Zero cycle counts, combined with a model of RISC Zero's
   segment padding.
 
+What is new here, and what is not, is set out in
+[docs/novelty.md](docs/novelty.md).
+
 Design choices and their reasons are recorded in
 [docs/design-decisions.md](docs/design-decisions.md).
 
