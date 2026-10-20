@@ -16,12 +16,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from traceopt.interp import type_size
+from traceopt.interp import InterpError, Layout, global_definitions
 
 PAGE_BYTES = 1024
 
-_GLOBAL_DEF_RE = re.compile(
-    r"^@([\w.$]+)\s*=\s*(?:[\w()]+\s+)*?(global|constant)\s+(\[[^\]]*\]|i\d+)", re.M)
+
+def _global_sizes(source: str) -> dict[str, int]:
+    """Size in bytes of each global whose type has a known layout."""
+    layout = Layout(source)
+    sizes = {}
+    for name, ty, _ in global_definitions(source):
+        try:
+            sizes[name] = layout.size(ty)
+        except InterpError:
+            continue
+    return sizes
 
 
 @dataclass(frozen=True)
@@ -45,7 +54,7 @@ class Footprint:
 
 def footprint(source: str, function: str) -> Footprint:
     """Globals referenced by `function` in the module text, with their sizes."""
-    sizes = {name: type_size(ty) for name, _, ty in _GLOBAL_DEF_RE.findall(source)}
+    sizes = _global_sizes(source)
     m = re.search(rf"^define\b[^\n]*@{re.escape(function)}\(.*?^\}}", source, re.M | re.S)
     if not m:
         raise KeyError(f"function {function!r} not found")
