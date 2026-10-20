@@ -49,6 +49,8 @@ _BY_OPCODE = {
 def classify(inst: Instruction) -> str:
     if inst.opcode == "br":
         return "cond_branch" if inst.text.split()[1] == "i1" else "jump"
+    if inst.opcode == "switch":
+        return "cond_branch"  # lowered to compares and branches, or a jump table
     return _BY_OPCODE.get(inst.opcode, "other")
 
 

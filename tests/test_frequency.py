@@ -108,6 +108,34 @@ c:
             block_frequencies(fn_of(src)), {"entry": 1.0, "a": 0.5, "c": 1.0}
         )
 
+    SWITCH = """
+define void @f(i32 %x) {
+entry:
+  switch i32 %x, label %d [
+    i32 0, label %a
+    i32 7, label %b
+  ]
+a:
+  br label %d
+b:
+  br label %d
+d:
+  ret void
+}
+"""
+
+    def test_switch_on_unknown_value_splits_evenly(self):
+        freq = block_frequencies(fn_of(self.SWITCH))
+        self.assertAlmostEqual(freq["a"], 1 / 3)
+        self.assertAlmostEqual(freq["b"], 1 / 3)
+        self.assertAlmostEqual(freq["d"], 1.0)
+
+    def test_switch_on_known_value_takes_the_case(self):
+        self.assertEqual(block_frequencies(fn_of(self.SWITCH), {"x": 7}),
+                         {"entry": 1.0, "a": 0.0, "b": 1.0, "d": 1.0})
+        self.assertEqual(block_frequencies(fn_of(self.SWITCH), {"x": 3}),
+                         {"entry": 1.0, "a": 0.0, "b": 0.0, "d": 1.0})
+
 
 if __name__ == "__main__":
     unittest.main()

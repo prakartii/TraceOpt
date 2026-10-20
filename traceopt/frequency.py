@@ -7,13 +7,14 @@ Method (documented in docs/architecture.md §4):
   function entry) and is split at conditional branches.
 - A block's frequency is its reach probability within its innermost region,
   multiplied by the trip counts of all enclosing loops (from `trip_count`).
-- Branches whose condition can be computed from constants and the given
-  arguments (traceopt/evaluate.py) are taken exactly. This covers the
-  guards and remainder checks of runtime-unrolled loops.
+- Branches and switches whose condition can be computed from constants and
+  the given arguments (traceopt/evaluate.py) are taken exactly. This covers
+  the guards and remainder checks of runtime-unrolled loops.
 - Otherwise, a branch heuristic: a branch whose one side enters a loop with a
   known trip count >= 1 (a loop guard), directly or through a preheader that
   only jumps to the loop, always enters the loop. All other conditional
-  branches are split evenly. This is a heuristic, not a profile.
+  branches and switches are split evenly among their successors. This is a
+  heuristic, not a profile.
 
 If a loop that may execute has an unknown trip count, UnknownTripCount is
 raised. Loops that are never reached need no trip count.
@@ -21,6 +22,7 @@ raised. Loops that are never reached need no trip count.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from traceopt.evaluate import Evaluator
@@ -56,12 +58,24 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
             trips[header] = t
         return trips[header]
 
-    def branch_value(label: str) -> int | None:
-        """Value of the block's branch condition, if it can be computed."""
+    def known_target(label: str) -> int | None:
+        """Index of the successor the block's terminator takes, if it can be computed."""
         words = fn.block(label).terminator.text.split()
-        if len(words) < 3 or words[:2] != ["br", "i1"]:
-            return None
-        return evaluator.value(words[2].rstrip(","), 1)
+        if len(words) >= 3 and words[:2] == ["br", "i1"]:
+            v = evaluator.value(words[2].rstrip(","), 1)
+            return None if v is None else (0 if v else 1)
+        if len(words) >= 3 and words[0] == "switch":
+            width = int(words[1][1:])
+            v = evaluator.value(words[2].rstrip(","), width)
+            if v is None:
+                return None
+            cases = re.findall(r"i\d+\s+(-?\d+),\s*label", fn.block(label).terminator.text)
+            mask = (1 << width) - 1
+            for i, c in enumerate(cases):
+                if int(c) & mask == v:
+                    return i + 1  # successors are the default, then the cases in order
+            return 0
+        return None
 
     owner = _innermost(loops)
     top_children = [lp for lp in loops if lp.parent is None]
@@ -117,9 +131,10 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
             n = ready.pop()
             targets = succ[n]
             weights = [1.0 / len(targets)] * len(targets) if targets else []
-            known = branch_value(n) if len(targets) == 2 and n not in child_by_header else None
+            known = known_target(n) if len(targets) >= 2 and n not in child_by_header else None
             if known is not None:
-                weights = [1.0, 0.0] if known else [0.0, 1.0]
+                weights = [0.0] * len(targets)
+                weights[known] = 1.0
             elif len(targets) == 2:
                 for i, t in enumerate(targets):
                     if enters_loop(t) and not enters_loop(targets[1 - i]):

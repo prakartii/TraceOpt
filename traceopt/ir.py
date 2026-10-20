@@ -1,7 +1,8 @@
 """Minimal parser for textual LLVM IR.
 
 Covers the subset produced by Clang for small, single-function C kernels:
-function definitions, basic blocks, instructions, and branch terminators.
+function definitions, basic blocks, instructions, and br/switch/ret
+terminators.
 Constructs outside this subset raise UnsupportedIR instead of being guessed
 at (see docs/design-decisions.md, D3).
 """
@@ -18,8 +19,8 @@ class UnsupportedIR(ValueError):
 
 # Prefixes that may precede the opcode, e.g. `tail call`.
 _CALL_PREFIXES = {"tail", "musttail", "notail"}
-_TERMINATORS = {"br", "ret", "unreachable"}
-_UNSUPPORTED_TERMINATORS = {"switch", "indirectbr", "invoke", "callbr", "resume"}
+_TERMINATORS = {"br", "switch", "ret", "unreachable"}
+_UNSUPPORTED_TERMINATORS = {"indirectbr", "invoke", "callbr", "resume"}
 
 _NAME = r'(?:[-a-zA-Z$._0-9]+|"[^"]*")'
 _DEFINE_RE = re.compile(r"^define\b.*?@(" + _NAME + r")\s*\((.*)\).*\{\s*$")
@@ -126,10 +127,19 @@ def parse_module(source: str) -> Module:
     functions: dict[str, Function] = {}
     current: Function | None = None
     entry_label = ""
+    pending = ""  # a switch spans several lines: `switch ... [`, cases, `]`
 
     for raw in source.splitlines():
         line = _strip_comment(raw).strip()
         if not line:
+            continue
+        if pending:
+            pending += " " + line
+            if line != "]":
+                continue
+            line, pending = pending, ""
+        elif current is not None and line.startswith("switch ") and line.endswith("["):
+            pending = line
             continue
 
         if current is None:

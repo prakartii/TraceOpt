@@ -63,7 +63,7 @@ exit:
         src = "declare i32 @g(i32)\ndefine void @f() {\n  ret void\n}\n"
         self.assertEqual(list(parse_module(src).functions), ["f"])
 
-    def test_switch_is_rejected(self):
+    def test_switch_on_one_line(self):
         src = """
 define void @f(i32 %x) {
 entry:
@@ -74,6 +74,32 @@ b:
   ret void
 }
 """
+        fn = parse_module(src).functions["f"]
+        self.assertEqual(fn.entry.successors, ["a", "b"])
+
+    def test_switch_over_several_lines(self):
+        # The form Clang prints: one case per line.
+        src = """
+define void @f(i32 %x) {
+entry:
+  switch i32 %x, label %a [
+    i32 0, label %b
+    i32 1, label %c
+  ]
+a:
+  ret void
+b:
+  ret void
+c:
+  ret void
+}
+"""
+        fn = parse_module(src).functions["f"]
+        self.assertEqual([b.label for b in fn.blocks], ["entry", "a", "b", "c"])
+        self.assertEqual(fn.entry.successors, ["a", "b", "c"])
+
+    def test_indirectbr_is_rejected(self):
+        src = "define void @f(ptr %p) {\nentry:\n  indirectbr ptr %p, [label %a]\na:\n  ret void\n}\n"
         with self.assertRaises(UnsupportedIR):
             parse_module(src)
 
