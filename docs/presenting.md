@@ -70,17 +70,39 @@ all eight stages live, and asks again. Things worth knowing:
 - Stage 4 takes 5–15 s on the memory-heavy kernel (every version runs in the
   Python IR interpreter); the rest takes a few seconds.
 
-Good inputs to suggest if they ask for "an interesting one", one per kind
-of case (all checked end to end; files are in `examples/kernels/`):
+Inputs where TraceOpt **accepts** a smaller bucket (each run end to end with
+the default 10% margin unless noted; the zkVM confirmed the saving and the
+answer every time):
+
+| Command (`scripts/live.sh ...`) | Chosen | Measured proved size |
+|---|---|---|
+| `strided_rw 5` | unrolled 4x | 262,144 → 131,072 (50% less) |
+| `examples/kernels/counter_table.c 500` | unrolled 8x | 65,536 → 32,768 (50% less) |
+| `nested_fnv 1500` | unrolled 8x | 262,144 → 131,072 (50% less) |
+| `examples/kernels/string_hash.c 30000` | unrolled 2x | 524,288 → 262,144 (50% less) |
+| `examples/kernels/counter_table.c 10000` | unrolled 8x | 262,144 → 131,072 (50% less) |
+| `nested_fnv 30000` | unrolled 8x | 2,621,440 → 2,097,152 (20% less, several segments) |
+| `examples/kernels/counter_table.c 1000000` | unrolled 8x | 14,680,064 → 5,373,952 (63% less) |
+| `nested_fnv 1000000` | unrolled 8x | 87,031,808 → 56,754,176 (35% less) |
+| `examples/kernels/string_hash.c 1000000` | unrolled 2x | 11,534,336 → 7,340,032 (36% less) |
+| `strided_rw 3000 --margin 5` | unrolled 4x | 2,621,440 → 2,097,152 (20% less) |
+| `nested_fnv 3000 --margin 5` | unrolled 8x | 524,288 → 262,144 (50% less) |
+| `strided_rw 200 --margin 5` | unrolled 4x | 524,288 → 262,144 (50% less) |
+| `xorshift 1000000 --margin 5` | unrolled 8x | 8,388,608 → 6,553,600 (22% less) |
+
+The last four are wins only with `--margin 5`: with the default 10% margin
+the same inputs are missed wins (below), which shows what the margin costs.
+
+Other inputs, one per kind of case (all checked end to end; files are in
+`examples/kernels/`):
 
 | Command (`scripts/live.sh ...`) | Case | What it shows |
 |---|---|---|
-| `strided_rw 5` | win | unrolling 4x halves the proved size, 262,144 → 131,072, confirmed by the zkVM |
-| `examples/kernels/counter_table.c 1000` | win on new code | 8x fits the smaller bucket: 65,536 → 32,768 |
-| `examples/kernels/counter_table.c 50` | nothing to gain | same program, smaller n: every version lands in the same bucket |
-| `xorshift 1000` | justified rejection | 4x and 8x look like wins but are too close to the edge; the zkVM shows they would not have won |
-| `nested_fnv 3000` | missed win | the safety margin rejected 2x, which would have halved the size; the verdict says so |
-| `xorshift 10000000` | large input | 80 million cycles, 79 segments; 8x saves 22% |
+| `examples/kernels/counter_table.c 50` | nothing to gain | every version lands in the same bucket |
+| `xorshift 1000` | nothing to gain | unrolling saves cycles, but not a bucket; the prediction says so correctly |
+| `nested_fnv 3000` | missed win | 2x would have halved the size, but its saving is inside the 10% margin; the verdict says so (taken with `--margin 5`) |
+| `examples/kernels/counter_table.c 1000` | missed win | the same, on custom code |
+| `xorshift 10000000` | large input, missed win | 80 million cycles in 79 segments; 8x would save 22% but is inside the margin |
 | `xorshift 4294967295` | too large to run | the prediction (34 billion cycles) is above the limit, so the zkVM run is skipped |
 | `sum_squares 1000` | no loop left | LLVM replaced the loop by a formula; nothing to unroll |
 | `examples/kernels/collatz.c 300` | no prediction | data-dependent loop count: original kept rather than guess |
