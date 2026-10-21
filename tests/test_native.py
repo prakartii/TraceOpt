@@ -46,6 +46,15 @@ class NativeRunTest(unittest.TestCase):
             with self.assertRaisesRegex(native.NativeError, "SIGFPE.*division by zero"):
                 native.run(exe, 0)
 
+    def test_printing_kernel_is_explained(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "talk.c"
+            src.write_text("#include <stdint.h>\n#include <stdio.h>\n"
+                           "uint32_t traceopt_kernel(uint32_t n) { printf(\"hi\\n\"); return n; }\n")
+            exe = native.build(src, Path(tmp))
+            with self.assertRaisesRegex(native.NativeError, "printf"):
+                native.run(exe, 5)
+
     def test_build_error_is_reported(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "bad.c"

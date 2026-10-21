@@ -61,4 +61,10 @@ def run(exe: Path, n: int, timeout: float = 120.0) -> int:
                           "answer to compare with")
     if proc.returncode != 0:
         raise NativeError(f"native run failed with exit code {proc.returncode}")
-    return int(proc.stdout.strip())
+    lines = proc.stdout.strip().splitlines()
+    if len(lines) != 1 or not lines[0].isdigit():
+        # The wrapper prints only the result, so anything else came from the kernel.
+        raise NativeError("the program printed output of its own (does it call printf?). "
+                          "Kernels run inside the zkVM without an operating system, so "
+                          "they cannot call library functions such as printf or malloc")
+    return int(lines[0])
