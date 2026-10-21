@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Run TraceOpt live on any input, stage by stage (inside WSL).
 
-    scripts/live.sh                        # interactive: asks for program and n
+    scripts/live.sh                        # interactive: asks for program and inputs
     scripts/live.sh xorshift 777           # one built-in kernel, one input
-    scripts/live.sh path/to/mine.c 42      # your own C kernel
+    scripts/live.sh path/to/mine.c 42      # your own C file
+    scripts/live.sh mine.c 100 -7          # a function with two inputs
+    scripts/live.sh mine.c:compute 100     # name the function if there are several
 
-A kernel is any C file defining `uint32_t traceopt_kernel(uint32_t n)`
-without library calls. Every stage prints a table as it finishes:
+A kernel is any C function with integer inputs (8 to 64 bits, signed or
+unsigned) that returns an integer or nothing, without library calls. By
+default TraceOpt optimizes `traceopt_kernel` if the file defines it, else the
+one function that no other function calls. Every stage prints a table as it
+finishes:
 
-  1. the program and the input
+  1. the program, the function and the inputs
   2. the expected answer, computed without TraceOpt (native build; also the
      Python reference for the built-in kernels)
-  3. compile to LLVM IR, find the loops and their trip counts for this n, and
-     turn the executed operations into predicted cycles
+  3. compile to LLVM IR, find the loops and their trip counts for these
+     inputs, and turn the executed operations into predicted cycles
   4. build the unrolled versions and check they give the same answers
   5. predict the cycles and proved (padded) size of each version
   6. choose a version, with the reason for each
@@ -35,7 +40,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 from reference import KERNELS  # noqa: E402
 
-from traceopt import backend, native, toolchain  # noqa: E402
+from traceopt import backend, native, signature, toolchain  # noqa: E402
 from traceopt.decision import Policy  # noqa: E402
 from traceopt.frequency import UnknownTripCount, dynamic_counts  # noqa: E402
 from traceopt.interp import InterpError, Interpreter  # noqa: E402
@@ -43,7 +48,7 @@ from traceopt.ir import parse_module  # noqa: E402
 from traceopt.machine import MachineMapError, executed_instructions  # noqa: E402
 from traceopt.loops import find_loops, trip_count  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
-from traceopt.optimize import DIFF_MAX_N, FUNCTION, optimize  # noqa: E402
+from traceopt.optimize import DIFF_INPUTS, DIFF_MAX_N, FUNCTION, optimize  # noqa: E402
 from traceopt.present import (bucket_bar, explain_note, factor_label, fmt,  # noqa: E402
                               power_of_two_ladder, table, unpadded)
 
@@ -122,30 +127,42 @@ class StageError(Exception):
     pass
 
 
-def resolve_program(text: str) -> tuple[Path, str | None]:
-    """A built-in kernel name or a path to a C file -> (source, built-in name)."""
+def resolve_program(text: str) -> tuple[Path, str | None, str | None]:
+    """A built-in kernel name or a path to a C file, optionally followed by
+    `:function` -> (source, built-in name, function)."""
     if text in BUILTIN:
-        return ROOT / "benchmarks" / f"{text}.c", text
-    path = Path(text).expanduser()
+        return ROOT / "benchmarks" / f"{text}.c", text, None
+    path, function = Path(text).expanduser(), None
+    if not path.is_file() and ":" in text:
+        head, _, function = text.rpartition(":")
+        path = Path(head).expanduser()
     if not path.is_file():
         raise StageError(f"no built-in kernel or file named {text!r}")
-    return path.resolve(), None
+    return path.resolve(), None, function or None
 
 
-def parse_n(text: str) -> int:
-    try:
-        n = int(text.replace(",", "").replace("_", ""))
-    except ValueError:
-        raise StageError(f"n must be a whole number, got {text!r}") from None
-    if not 0 <= n <= U32_MAX:
-        raise StageError(f"n must be between 0 and {U32_MAX:,} (a 32-bit unsigned value)")
-    return n
+def parse_values(texts: list[str]) -> list[int]:
+    """Whole numbers as typed (commas and underscores allowed, may be negative)."""
+    values = []
+    for text in texts:
+        try:
+            values.append(int(text.replace(",", "").replace("_", "")))
+        except ValueError:
+            raise StageError(f"inputs must be whole numbers, got {text!r}") from None
+    return values
 
 
-def measure(obj: Path, n: int) -> dict:
+def check_values(builtin: str | None, values: list[int]) -> list[int]:
+    """A built-in kernel takes exactly one n (other files: see Signature)."""
+    if builtin and (len(values) != 1 or not 0 <= values[0] <= U32_MAX):
+        raise StageError(f"{builtin} takes one input n between 0 and {U32_MAX:,}")
+    return values
+
+
+def measure(obj: Path, words: list[int], entry: Path) -> dict:
     t = time.monotonic()
     try:
-        backend.build(obj=obj, guest_only=True, quiet=True)
+        backend.build(obj=obj, entry=entry, guest_only=True, quiet=True)
     except subprocess.CalledProcessError as e:
         errors = [ln.strip() for ln in (e.stderr or "").splitlines()
                   if "undefined reference" in ln or "error" in ln.lower()]
@@ -153,7 +170,7 @@ def measure(obj: Path, n: int) -> dict:
                          "not call library functions such as printf or malloc):\n"
                          + "\n".join(dict.fromkeys(errors[:6]))) from None
     try:
-        report = backend.execute(n, kernel_elf=backend.KERNEL_BIN)
+        report = backend.execute(words, kernel_elf=backend.KERNEL_BIN)
     except subprocess.CalledProcessError as e:
         raise StageError(f"the zkVM run failed:\n{(e.stderr or '').strip()[-800:]}") from None
     s = report["stats"]
@@ -231,40 +248,79 @@ def decision_check(rows: dict, measured: dict[str, dict], selected: str,
     return text
 
 
-def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy,
+def compile_program(src: Path, work: Path) -> tuple[Path, Path]:
+    """-O0 IR (to find the function) and TraceOpt's baseline IR."""
+    try:
+        return (toolchain.emit_unoptimized_ir(src, work / "o0.ll"),
+                toolchain.emit_base_ir(src, work / "base.ll"))
+    except Exception as e:  # clang's message is the useful part
+        raise StageError(f"clang could not compile the program for RISC-V:\n{e}\n"
+                         "Kernels are C (not C++) and run without an operating system: only "
+                         "headers such as <stdint.h>, <stddef.h> and <stdbool.h> are "
+                         "available, and no library functions (printf, malloc, ...).") from None
+
+
+def read_signature(src: Path, top_ir: Path, base_ir: Path,
+                   function: str | None) -> signature.Signature:
+    try:
+        name = signature.pick_function(top_ir.read_text(), function)
+        if name not in parse_module(base_ir.read_text()).functions:
+            raise StageError(f"{name} disappeared during compilation: the compiler removes "
+                             "a `static` function that nothing calls, so remove `static`")
+        return signature.read(base_ir.read_text(), name, src.read_text())
+    except signature.SignatureError as e:
+        raise StageError(str(e)) from None
+
+
+def run(src: Path, builtin: str | None, values: list[int], model: CostModel, policy: Policy,
         work: Path, st: Stages, max_cycles: int, do_measure: bool,
-        only_chosen: bool = False) -> bool:
+        only_chosen: bool = False, function: str | None = None) -> bool:
     s = st.s
     label = builtin or src.name
-    work = work / f"{label.replace('.', '_')}-{n}"
+    work = work / f"{label.replace('.', '_')}-{'_'.join(map(str, values)) or 'none'}"
     work.mkdir(parents=True, exist_ok=True)
     print(s.cyan("═" * 78))
-    print(s.bold(f"  TraceOpt live run: {label}, n = {n:,}"))
+    print(s.bold(f"  TraceOpt live run: {label}, "
+                 + (f"inputs {', '.join(f'{v:,}' for v in values)}" if values else "no inputs")))
     print(s.cyan("═" * 78))
 
     # 1. Program and input --------------------------------------------------
     st.begin(1, "Program and input")
-    if FUNCTION not in src.read_text():
-        raise StageError(f"{src.name} must define `uint32_t {FUNCTION}(uint32_t n)`, the "
-                         "function TraceOpt optimizes and the zkVM runs")
     for i, line in enumerate(src.read_text().splitlines(), 1):
         print(f"      {s.dim(f'{i:3}')}  {line}")
-    what, out = BUILTIN.get(builtin, ("the argument passed to traceopt_kernel",
-                                      "the value traceopt_kernel(n) returns"))
-    print(table(None, [["Program", f"{label} ({'built-in' if builtin else 'your C file'})"],
-                           ["Input", f"n = {n:,}"],
-                           ["What n means", what],
-                           ["Output", out]], max_widths={1: 64}))
+    top_ir, base_ir = compile_program(src, work)
+    sig = read_signature(src, top_ir, base_ir, function)
+    try:
+        raw = sig.raw_values(values)
+        args, words = sig.ir_args(values), sig.words(values)
+    except signature.SignatureError as e:
+        raise StageError(str(e)) from None
+    fname = sig.function
+    inputs_text = ", ".join(f"{p} = {v:,}" for p, v in zip(sig.names, values)) or "none"
+    rows = [["Program", f"{label} ({'built-in' if builtin else 'your C file'})"],
+            ["Function", f"{fname}({', '.join(sig.names)})"
+             + ("" if function or fname == FUNCTION else s.dim("  (the one nothing calls)"))],
+            ["Inputs", inputs_text]]
+    if builtin:
+        what, out = BUILTIN[builtin]
+        rows += [["What n means", what], ["Output", out]]
+    else:
+        rows.append(["Output", "nothing (void): only the cycles are compared" if sig.ret is None
+                     else f"the value {sig.call_text(values)} returns "
+                          f"({sig.ret.bits}-bit {'signed' if sig.ret.signed else 'unsigned'})"])
+    print(table(None, rows, max_widths={1: 64}))
     st.done()
 
     # 2. Expected answer, independently of TraceOpt --------------------------
     st.begin(2, "Expected answer (computed without TraceOpt or the zkVM)")
     try:
-        exe = native.build(src, work / "native")
-        expected = native.run(exe, n)
+        exe = native.build(src, work / "native", sig)
+        expected = sig.result(native.run(exe, raw))
     except native.NativeError as e:
         raise StageError(str(e)) from None
-    answers = [["Native build (host clang, x86-64)", s.bold(str(expected)), "this is the expected answer"]]
+    answers = [["Native build (host clang, x86-64)", s.bold(sig.show(expected)),
+                "this is the expected answer"]]
+    n = values[0] if builtin else None
     if builtin and n <= PYTHON_REFERENCE_MAX_N:
         py = KERNELS[builtin](n)
         answers.append(["Python reference (tests/reference.py)", str(py),
@@ -277,17 +333,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
 
     # 3. Compile and analyze --------------------------------------------------
     st.begin(3, "Compile to LLVM IR and analyze the loops (static analysis, nothing runs)")
-    try:
-        base_ir = toolchain.emit_base_ir(src, work / "base.ll")
-    except Exception as e:  # clang's message is the useful part
-        raise StageError(f"clang could not compile the program for RISC-V:\n{e}\n"
-                         "Kernels run without an operating system: only headers such as "
-                         "<stdint.h>, <stddef.h> and <stdbool.h> are available, and no "
-                         "library functions (printf, malloc, ...).") from None
-    module = parse_module(base_ir.read_text())
-    if FUNCTION not in module.functions:
-        raise StageError(f"the program must define `uint32_t {FUNCTION}(uint32_t n)`")
-    fn = module.functions[FUNCTION]
+    fn = parse_module(base_ir.read_text()).functions[fname]
     st.say(f"clang -O1 (unrolling off): {len(fn.blocks)} basic blocks, "
            f"{sum(len(b.instructions) for b in fn.blocks)} IR instructions")
     loops = find_loops(fn)
@@ -295,7 +341,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     loop_rows = []
 
     def add_loop(lp, depth: int, outer_total: int | None) -> None:
-        tc = trip_count(fn, lp, {"0": n})
+        tc = trip_count(fn, lp, args)
         total = None if tc is None or outer_total is None else tc * outer_total
         loop_rows.append([("  " * depth) + ("└ " if depth else "") + f"%{lp.header}",
                           "top level" if depth == 0 else f"loop %{lp.parent.header}",
@@ -309,18 +355,18 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         add_loop(lp, 0, 1)
     if loop_rows:
         print(table(["Loop", "Inside", "Blocks", "Runs each time\nit is reached",
-                     "Iterations in\ntotal for this n"], loop_rows, align="llrrr"))
+                     "Iterations in\ntotal, this input"], loop_rows, align="llrrr"))
     else:
         st.say("no loops: LLVM may have replaced the loop by a formula (nothing to unroll)")
     try:
         try:
             if model.machine_intercept is None:
                 raise MachineMapError("no machine model")
-            show_machine_cost(executed_instructions(base_ir, {"0": n}), model, st)
+            show_machine_cost(executed_instructions(base_ir, args, fname), model, st)
         except MachineMapError as e:
             if model.machine_intercept is not None:
                 st.say(s.yellow(f"machine code not mapped ({e}); using the IR model"))
-            show_ir_cost(dynamic_counts(fn, {"0": n}), model, st)
+            show_ir_cost(dynamic_counts(fn, args), model, st)
     except UnknownTripCount as e:
         st.say(s.yellow(f"cannot count executed operations: {e}"))
     st.done()
@@ -329,9 +375,9 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     st.begin(4, "Build the unrolled versions and check their answers")
     st.say(s.dim("opt unrolls 1x/2x/4x/8x, llc compiles each for RISC-V, then each version "
                  "runs in the IR interpreter..."))
-    result = optimize(src, {"0": n}, model, work, policy=policy)
+    result = optimize(src, args, model, work, policy=policy, function=fname)
     rows = {r.name: r for r in result.decision.rows}
-    show_n = n <= DIFF_MAX_N
+    show_n = all(abs(v) <= DIFF_MAX_N for v in args.values())
     version_rows = []
     for v in result.variants:
         if v.factor == 1:
@@ -347,21 +393,30 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         row = [factor_label(v.name), fmt(v.code_bytes) + " B", check]
         if show_n:
             try:
-                got, _ = Interpreter(v.ir.read_text()).run(FUNCTION, {"0": n})
-                row.append(s.green(f"{got} ✔") if got == expected else s.red(f"{got} ✘"))
+                got, _ = Interpreter(v.ir.read_text()).run(fname, args)
+                got = sig.result(got)
+                row.append(s.green(f"{sig.show(got)} ✔") if got == expected
+                           else s.red(f"{sig.show(got)} ✘"))
             except InterpError:
                 row.append(s.yellow("could not run"))
         version_rows.append(row)
     print(table(["Version", "Code size", "Same answers as\nthe original?"]
-                + (["Answer at\nyour n"] if show_n else []), version_rows,
+                + (["Answer for\nyour input"] if show_n else []), version_rows,
                 align="lrl" + ("r" if show_n else "")))
     for v in result.variants:
         if v.differential_failure and ": returned " not in v.differential_failure:
             st.say(s.dim(f"{factor_label(v.name)}: {v.differential_failure}"))
     inputs = result.variants[0].differential_inputs
-    st.say(s.dim(f"checked in TraceOpt's IR interpreter on n = {', '.join(map(str, inputs))}"
-                 + ("" if show_n else f"; your n is above {DIFF_MAX_N:,}, so the zkVM run "
-                    "below checks it")))
+    if len(sig.params) == 1:
+        checked = f"{sig.names[0]} = {', '.join(map(str, inputs))}"
+    elif sig.params:
+        checked = (f"{len(inputs)} input sets (all inputs set to "
+                   f"{', '.join(map(str, DIFF_INPUTS))}" + (", and yours)" if show_n else ")"))
+    else:
+        checked = "the one call (the function takes no inputs)"
+    st.say(s.dim(f"checked in TraceOpt's IR interpreter on {checked}"
+                 + ("" if show_n else f"; your input is above {DIFF_MAX_N:,}, so the zkVM "
+                    "run below checks it")))
     st.done()
 
     # 5. Predictions ------------------------------------------------------------
@@ -438,6 +493,8 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                         "is what tells us this run would be too long"))
     else:
         variants = {v.name: v for v in result.variants}
+        entry = toolchain.entry_object(sig.entry_ir(toolchain.target_lines(base_ir)),
+                                       work / "entry.o")
         names = ["unroll1", selected]
         if not only_chosen:
             # The other versions are run only to show what the decision avoided.
@@ -446,7 +503,8 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                       and rows[v.name].padded_total is not None]
         for name in dict.fromkeys(names):
             print(s.dim(f"      running {factor_label(name)} in the zkVM..."), end="", flush=True)
-            measured[name] = measure(variants[name].obj, n)
+            measured[name] = measure(variants[name].obj, words, entry)
+            measured[name]["output"] = sig.result(measured[name]["output"])
             print(s.dim(f" {measured[name]['seconds']:.1f} s"), flush=True)
         for v in result.variants:   # identical machine code measures the same
             if v.same_as in measured and v.name not in measured:
@@ -459,7 +517,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
             right = m["output"] == expected
             run_rows.append([factor_label(v.name)
                              + (s.dim(" (chosen)") if v.name == selected != "unroll1" else ""),
-                             str(m["output"]),
+                             sig.show(m["output"]),
                              s.green("✔ yes") if right else s.red("✘ NO"),
                              fmt(m["user_cycles"]), fmt(m["paging_cycles"]),
                              s.bold(fmt(m["total_cycles"])), str(m["segments"]),
@@ -488,7 +546,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                 cmp_rows, align="lrrrrrl"))
 
     ok = True
-    summary = [["Expected answer (native build)", str(expected)]]
+    summary = [["Expected answer (native build)", sig.show(expected)]]
     for name in dict.fromkeys(["unroll1", selected]):
         m = measured.get(name)
         if m is None:
@@ -496,7 +554,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         right = m["output"] == expected
         ok &= right
         summary.append([f"zkVM answer, {factor_label(name)}",
-                        f"{m['output']}  " + (s.green("✔ matches") if right
+                        f"{sig.show(m['output'])}  " + (s.green("✔ matches") if right
                                               else s.red("✘ does not match"))])
     if "unroll1" in measured and selected in measured:
         a, b = measured["unroll1"]["total_cycles"], measured[selected]["total_cycles"]
@@ -532,23 +590,23 @@ def ask(prompt: str) -> str:
 def interactive(args, model, policy, st: Stages) -> int:
     s = st.s
     names = list(BUILTIN)
-    print(s.bold("TraceOpt live: type a program and an input, see every stage."))
+    print(s.bold("TraceOpt live: type a program and its inputs, see every stage."))
     while True:
         print("\nPrograms: " + ", ".join(f"{i + 1}) {k}" for i, k in enumerate(names))
               + "  — or a path to your own .c file")
-        prog = ask("program (number, name or path; q to quit): ")
+        prog = ask("program (number, name, path or path:function; q to quit): ")
         if prog.lower() in ("q", "quit", "exit", ""):
             return 0
         if prog.isdigit() and 1 <= int(prog) <= len(names):
             prog = names[int(prog) - 1]
-        n_text = ask("n (0 .. 4294967295): ")
-        if n_text.lower() in ("q", "quit", "exit"):
+        text = ask("inputs, separated by spaces (e.g. 1000, or 100 -7): ")
+        if text.lower() in ("q", "quit", "exit"):
             return 0
         try:
-            src, builtin = resolve_program(prog)
-            n = parse_n(n_text)
-            run(src, builtin, n, model, policy, args.work, st, args.max_cycles,
-                not args.no_measure, args.only_chosen)
+            src, builtin, function = resolve_program(prog)
+            values = check_values(builtin, parse_values(text.split()))
+            run(src, builtin, values, model, policy, args.work, st, args.max_cycles,
+                not args.no_measure, args.only_chosen, function)
         except StageError as e:
             print(s.red(f"\n  stopped: {e}"))
         except Exception as e:  # keep the session alive on inputs TraceOpt cannot handle
@@ -558,8 +616,11 @@ def interactive(args, model, policy, st: Stages) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("program", nargs="?",
-                        help=f"built-in kernel ({', '.join(BUILTIN)}) or path to a .c file")
-    parser.add_argument("n", nargs="?", help="input, 0 .. 4294967295")
+                        help=f"built-in kernel ({', '.join(BUILTIN)}) or path to a .c file, "
+                             "optionally with :function")
+    parser.add_argument("inputs", nargs="*",
+                        help="the function's inputs (for a built-in kernel: n, "
+                             "0 .. 4294967295)")
     parser.add_argument("--model", type=Path, default=ROOT / "results/model-clang21.json")
     parser.add_argument("--work", type=Path, default=Path.home() / ".cache/traceopt-live")
     parser.add_argument("--max-cycles", type=int, default=DEFAULT_MAX_CYCLES,
@@ -587,13 +648,11 @@ def main() -> int:
     policy = Policy(uncertainty=args.margin / 100)
     if args.program is None:
         return interactive(args, model, policy, st)
-    if args.n is None:
-        parser.error("give both a program and n, or neither for interactive mode")
     try:
-        src, builtin = resolve_program(args.program)
-        n = parse_n(args.n)
-        ok = run(src, builtin, n, model, policy, args.work, st, args.max_cycles,
-                 not args.no_measure, args.only_chosen)
+        src, builtin, function = resolve_program(args.program)
+        values = check_values(builtin, parse_values(args.inputs))
+        ok = run(src, builtin, values, model, policy, args.work, st, args.max_cycles,
+                 not args.no_measure, args.only_chosen, function)
     except StageError as e:
         print(st.s.red(f"\n  stopped: {e}"), file=sys.stderr)
         return 1
