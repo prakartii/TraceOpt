@@ -25,7 +25,8 @@
     "guest_overhead_range": [
       4005,
       4005
-    ]
+    ],
+    "machine_fit": "results/fit-clang21-machine.json"
   },
   "feature_definitions": {
     "compute": [
@@ -46,5 +47,6 @@
       "jump",
       "ret"
     ]
-  }
+  },
+  "machine_intercept": 84.918
 }

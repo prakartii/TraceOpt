@@ -1,13 +1,16 @@
 """The calibrated cost model used to score candidates.
 
-    kernel cycles  = intercept + Σ_f w_f · dynamic_count_f
+    kernel cycles  = executed RISC-V instructions + machine_intercept
+                     (traceopt/machine.py; when the machine code can be mapped)
+                   = intercept + Σ_f w_f · dynamic_count_f
+                     (the IR model, otherwise)
     user cycles    = kernel cycles + guest_overhead
     paging cycles  = paging_base + paging_per_page · data_pages
 
 The user and paging predictions feed the segment model
 (traceopt/segments.py), whose padded total is what candidates are compared
-on. All coefficients come from measurements (scripts/fit_model.py); none are
-taken from documentation.
+on. All coefficients come from measurements (scripts/fit_model.py,
+scripts/fit_machine.py); none are taken from documentation.
 """
 
 from __future__ import annotations
@@ -30,6 +33,14 @@ class CostModel:
     # Feature name -> instruction classes summed into it; a feature missing
     # here is a single class of the same name.
     feature_definitions: dict[str, list[str]] = field(default_factory=dict)
+    # Kernel cycles beyond the executed machine instructions; None disables
+    # the machine-code model.
+    machine_intercept: float | None = None
+
+    def machine_kernel_cycles(self, executed_instructions: float) -> float:
+        if self.machine_intercept is None:
+            raise ValueError("this cost model has no machine_intercept")
+        return executed_instructions + self.machine_intercept
 
     def feature_value(self, feature: str, dynamic_counts: dict[str, float]) -> float:
         classes = self.feature_definitions.get(feature, [feature])

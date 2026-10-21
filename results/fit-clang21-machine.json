@@ -1,0 +1,551 @@
+{
+  "results": "results/variants-clang21.json",
+  "model": "kernel cycles = executed RISC-V instructions + intercept",
+  "toolchain": {
+    "clang": "clang version 21.1.8",
+    "opt": "LLVM version 21.1.8",
+    "llc": "LLVM version 21.1.8"
+  },
+  "observations": 64,
+  "intercept": 84.91796875,
+  "in_sample": {
+    "mean_abs": 0.00556872421233166,
+    "max_abs": 0.04001991421568627
+  },
+  "leave_one_benchmark_out": {
+    "xorshift": {
+      "intercept_without": 84.55729166666667,
+      "mean_abs": 0.009568701914853145,
+      "max_abs": 0.04355596405228754
+    },
+    "nested_fnv": {
+      "intercept_without": 84.78645833333333,
+      "mean_abs": 0.003705207838996818,
+      "max_abs": 0.013834635416666786
+    },
+    "branchy": {
+      "intercept_without": 86.10416666666667,
+      "mean_abs": 0.0068776126795461094,
+      "max_abs": 0.024982344632768282
+    },
+    "strided_rw": {
+      "intercept_without": 84.22395833333333,
+      "mean_abs": 4.0134212765799844e-05,
+      "max_abs": 0.0001271441184821702
+    }
+  },
+  "predictions": [
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 102,
+      "executed_instructions": 13.0,
+      "predicted": 97.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 174,
+      "executed_instructions": 85.0,
+      "predicted": 169.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 894,
+      "executed_instructions": 805.0,
+      "predicted": 889.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 8094,
+      "executed_instructions": 8005.0,
+      "predicted": 8089.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 104,
+      "executed_instructions": 17.0,
+      "predicted": 101.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 169,
+      "executed_instructions": 84.0,
+      "predicted": 168.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 799,
+      "executed_instructions": 714.0,
+      "predicted": 798.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 7099,
+      "executed_instructions": 7014.0,
+      "predicted": 7098.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 112,
+      "executed_instructions": 25.0,
+      "predicted": 109.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 173,
+      "executed_instructions": 89.0,
+      "predicted": 173.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 751,
+      "executed_instructions": 667.0,
+      "predicted": 751.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 6601,
+      "executed_instructions": 6517.0,
+      "predicted": 6601.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 112,
+      "executed_instructions": 25.0,
+      "predicted": 109.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 171,
+      "executed_instructions": 87.0,
+      "predicted": 171.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 739,
+      "executed_instructions": 655.0,
+      "predicted": 739.9
+    },
+    {
+      "benchmark": "xorshift",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 6351,
+      "executed_instructions": 6267.0,
+      "predicted": 6351.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 181,
+      "executed_instructions": 94.0,
+      "predicted": 178.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 937,
+      "executed_instructions": 850.0,
+      "predicted": 934.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 8497,
+      "executed_instructions": 8410.0,
+      "predicted": 8494.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 84097,
+      "executed_instructions": 84010.0,
+      "predicted": 84094.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 166,
+      "executed_instructions": 79.0,
+      "predicted": 163.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 783,
+      "executed_instructions": 699.0,
+      "predicted": 783.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 6903,
+      "executed_instructions": 6819.0,
+      "predicted": 6903.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 68103,
+      "executed_instructions": 68019.0,
+      "predicted": 68103.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 164,
+      "executed_instructions": 77.0,
+      "predicted": 161.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 705,
+      "executed_instructions": 621.0,
+      "predicted": 705.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 6056,
+      "executed_instructions": 5972.0,
+      "predicted": 6056.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 59606,
+      "executed_instructions": 59522.0,
+      "predicted": 59606.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 160,
+      "executed_instructions": 73.0,
+      "predicted": 157.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 658,
+      "executed_instructions": 574.0,
+      "predicted": 658.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 5610,
+      "executed_instructions": 5526.0,
+      "predicted": 5610.9
+    },
+    {
+      "benchmark": "nested_fnv",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 55104,
+      "executed_instructions": 55020.0,
+      "predicted": 55104.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 110,
+      "executed_instructions": 22.5,
+      "predicted": 107.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 236,
+      "executed_instructions": 144.0,
+      "predicted": 228.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 1440,
+      "executed_instructions": 1359.0,
+      "predicted": 1443.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 13564,
+      "executed_instructions": 13509.0,
+      "predicted": 13593.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 109,
+      "executed_instructions": 21.8,
+      "predicted": 106.7
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 232,
+      "executed_instructions": 143.5,
+      "predicted": 228.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 1379,
+      "executed_instructions": 1291.0,
+      "predicted": 1375.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 12849,
+      "executed_instructions": 12766.0,
+      "predicted": 12850.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 115,
+      "executed_instructions": 27.5,
+      "predicted": 112.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 233,
+      "executed_instructions": 147.0,
+      "predicted": 231.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 1336,
+      "executed_instructions": 1254.5,
+      "predicted": 1339.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 12469,
+      "executed_instructions": 12392.0,
+      "predicted": 12476.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 115,
+      "executed_instructions": 27.5,
+      "predicted": 112.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 235,
+      "executed_instructions": 150.5,
+      "predicted": 235.4
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 1341,
+      "executed_instructions": 1263.0,
+      "predicted": 1347.9
+    },
+    {
+      "benchmark": "branchy",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 12391,
+      "executed_instructions": 12333.5,
+      "predicted": 12418.4
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 1,
+      "measured": 66347,
+      "executed_instructions": 66260.0,
+      "predicted": 66344.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 10,
+      "measured": 72710,
+      "executed_instructions": 72623.0,
+      "predicted": 72707.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 100,
+      "measured": 136340,
+      "executed_instructions": 136253.0,
+      "predicted": 136337.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 1,
+      "n": 1000,
+      "measured": 772640,
+      "executed_instructions": 772553.0,
+      "predicted": 772637.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 1,
+      "measured": 49906,
+      "executed_instructions": 49817.0,
+      "predicted": 49901.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 10,
+      "measured": 55707,
+      "executed_instructions": 55620.0,
+      "predicted": 55704.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 100,
+      "measured": 113667,
+      "executed_instructions": 113580.0,
+      "predicted": 113664.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 2,
+      "n": 1000,
+      "measured": 693267,
+      "executed_instructions": 693180.0,
+      "predicted": 693264.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 1,
+      "measured": 41682,
+      "executed_instructions": 41593.0,
+      "predicted": 41677.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 10,
+      "measured": 46934,
+      "executed_instructions": 46848.0,
+      "predicted": 46932.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 100,
+      "measured": 99316,
+      "executed_instructions": 99230.0,
+      "predicted": 99314.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 4,
+      "n": 1000,
+      "measured": 623116,
+      "executed_instructions": 623030.0,
+      "predicted": 623114.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 1,
+      "measured": 37564,
+      "executed_instructions": 37475.0,
+      "predicted": 37559.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 10,
+      "measured": 42572,
+      "executed_instructions": 42486.0,
+      "predicted": 42570.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 100,
+      "measured": 92537,
+      "executed_instructions": 92451.0,
+      "predicted": 92535.9
+    },
+    {
+      "benchmark": "strided_rw",
+      "unroll_factor": 8,
+      "n": 1000,
+      "measured": 592139,
+      "executed_instructions": 592053.0,
+      "predicted": 592137.9
+    }
+  ]
+}
