@@ -217,9 +217,10 @@ def decision_check(rows: dict, measured: dict[str, dict], selected: str,
     better = [k for k, m in measured.items() if m["total_cycles"] < chosen]
     if better:
         k = min(better, key=lambda k: measured[k]["total_cycles"])
+        why = explain_note(rows[k].note) if k in rows else "it had no prediction"
         return (f"Missed win: {factor_label(k)} measured {fmt(measured[k]['total_cycles'])}, "
-                f"smaller than the choice ({fmt(chosen)}). TraceOpt rejected it because the "
-                "saving did not survive a 10% prediction error: the safety margin cost a win.")
+                f"smaller than the choice ({fmt(chosen)}). TraceOpt's reason for not taking "
+                f"it: {why}.")
     justified = [k for k, m in measured.items()
                  if k != selected and k in rows and rows[k].padded_total is not None
                  and rows[k].padded_total < chosen <= m["total_cycles"]]
@@ -392,7 +393,8 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     st.done()
 
     # 6. Decision ------------------------------------------------------------------
-    st.begin(6, "Decide (accept only a saving that survives a 10% prediction error)")
+    st.begin(6, f"Decide (accept only a saving that survives a {policy.uncertainty:.0%} "
+                "prediction error)")
     selected = result.decision.selected
     decision_rows = []
     for r in result.decision.rows:
@@ -558,6 +560,9 @@ def main() -> int:
     parser.add_argument("--max-cycles", type=int, default=DEFAULT_MAX_CYCLES,
                         help="skip the zkVM run above this predicted proved size")
     parser.add_argument("--no-measure", action="store_true", help="skip the zkVM runs")
+    parser.add_argument("--margin", type=float, default=10.0,
+                        help="safety margin in percent: a version is accepted only if its "
+                             "saving survives a prediction error this large (default 10)")
     parser.add_argument("--only-chosen", action="store_true",
                         help="run only the original and the chosen version in the zkVM "
                              "(faster; the other versions are not checked)")
@@ -572,7 +577,9 @@ def main() -> int:
         return 2
     st = Stages(Style(sys.stdout.isatty()))
     model = CostModel.load(args.model)
-    policy = Policy(uncertainty=0.10)
+    if not 0 <= args.margin < 100:
+        parser.error("--margin must be a percentage from 0 to 99")
+    policy = Policy(uncertainty=args.margin / 100)
     if args.program is None:
         return interactive(args, model, policy, st)
     if args.n is None:
