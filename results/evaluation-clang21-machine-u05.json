@@ -1,0 +1,946 @@
+{
+  "description": "baseline (-O1, no unroll) vs conventional (-O2) vs TraceOpt, execute mode",
+  "created": "2026-10-21T10:05:39+00:00",
+  "model": "results/model-clang21.json",
+  "policy": {
+    "min_improvement": 0.05,
+    "max_code_growth": 16.0,
+    "uncertainty": 0.05
+  },
+  "toolchain": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo-risczero": "cargo-risczero 3.0.6",
+    "r0vm": "risc0-r0vm 3.0.6",
+    "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "clang": "clang version 21.1.8",
+    "opt": "LLVM version 21.1.8",
+    "llc": "LLVM version 21.1.8"
+  },
+  "records": [
+    {
+      "benchmark": "xorshift",
+      "n": 5,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 4135,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 4135,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 134,
+          "user_cycles": 4139,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 3532304609
+        },
+        "conventional": {
+          "kernel_cycles": 134,
+          "user_cycles": 4139,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 3532304609
+        },
+        "traceopt": {
+          "kernel_cycles": 134,
+          "user_cycles": 4139,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 3532304609
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "xorshift",
+      "n": 50,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 4495,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 4495,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 494,
+          "user_cycles": 4499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 1835067133
+        },
+        "conventional": {
+          "kernel_cycles": 494,
+          "user_cycles": 4499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 1835067133
+        },
+        "traceopt": {
+          "kernel_cycles": 494,
+          "user_cycles": 4499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 1835067133
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "xorshift",
+      "n": 300,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 6495,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 6495,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 2494,
+          "user_cycles": 6499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 768864335
+        },
+        "conventional": {
+          "kernel_cycles": 2494,
+          "user_cycles": 6499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 768864335
+        },
+        "traceopt": {
+          "kernel_cycles": 2494,
+          "user_cycles": 6499,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 768864335
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "xorshift",
+      "n": 3000,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 28095,
+          "padded_total": 65536
+        },
+        "traceopt": {
+          "user_cycles": 28095,
+          "padded_total": 65536
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 24094,
+          "user_cycles": 28099,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 243850383
+        },
+        "conventional": {
+          "kernel_cycles": 24094,
+          "user_cycles": 28099,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 243850383
+        },
+        "traceopt": {
+          "kernel_cycles": 24094,
+          "user_cycles": 28099,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 52,
+          "output": 243850383
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 65536,
+        "unroll2": 65536,
+        "unroll4": 65536,
+        "unroll8": 65536
+      },
+      "best_variant_total": 65536,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "nested_fnv",
+      "n": 5,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 4520,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 4520,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 517,
+          "user_cycles": 4522,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 1223846021
+        },
+        "conventional": {
+          "kernel_cycles": 342,
+          "user_cycles": 4347,
+          "paging_cycles": 18661,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 236,
+          "output": 1223846021
+        },
+        "traceopt": {
+          "kernel_cycles": 517,
+          "user_cycles": 4522,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 1223846021
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "nested_fnv",
+      "n": 50,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 8300,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 8300,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 4297,
+          "user_cycles": 8302,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 3506389637
+        },
+        "conventional": {
+          "kernel_cycles": 2547,
+          "user_cycles": 6552,
+          "paging_cycles": 18661,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 236,
+          "output": 3506389637
+        },
+        "traceopt": {
+          "kernel_cycles": 4297,
+          "user_cycles": 8302,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 3506389637
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "nested_fnv",
+      "n": 300,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 29300,
+          "padded_total": 65536
+        },
+        "traceopt": {
+          "user_cycles": 29300,
+          "padded_total": 65536
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 25297,
+          "user_cycles": 29302,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 1942081685
+        },
+        "conventional": {
+          "kernel_cycles": 14797,
+          "user_cycles": 18802,
+          "paging_cycles": 18661,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 236,
+          "output": 1942081685
+        },
+        "traceopt": {
+          "kernel_cycles": 25297,
+          "user_cycles": 29302,
+          "paging_cycles": 18635,
+          "total_cycles": 65536,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 1942081685
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 65536,
+        "unroll2": 65536,
+        "unroll4": 65536,
+        "unroll8": 65536
+      },
+      "best_variant_total": 65536,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "nested_fnv",
+      "n": 3000,
+      "selected": "unroll8",
+      "reason": "predicted padded total 262144 vs 524288 (50.0% lower)",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 256100,
+          "padded_total": 524288
+        },
+        "traceopt": {
+          "user_cycles": 169110,
+          "padded_total": 262144
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 252097,
+          "user_cycles": 256102,
+          "paging_cycles": 18635,
+          "total_cycles": 524288,
+          "segments": 1,
+          "code_bytes": 76,
+          "output": 1259585093
+        },
+        "conventional": {
+          "kernel_cycles": 147097,
+          "user_cycles": 151102,
+          "paging_cycles": 18661,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 236,
+          "output": 1259585093
+        },
+        "traceopt": {
+          "kernel_cycles": 165104,
+          "user_cycles": 169109,
+          "paging_cycles": 18879,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 1108,
+          "output": 1259585093
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 524288,
+        "unroll2": 262144,
+        "unroll4": 262144,
+        "unroll8": 262144
+      },
+      "best_variant_total": 262144,
+      "best_variants": [
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "branchy",
+      "n": 5,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 4166,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 4166,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 168,
+          "user_cycles": 4173,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4147371734
+        },
+        "conventional": {
+          "kernel_cycles": 168,
+          "user_cycles": 4173,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4147371734
+        },
+        "traceopt": {
+          "kernel_cycles": 168,
+          "user_cycles": 4173,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4147371734
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "branchy",
+      "n": 50,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 4774,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 4774,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 774,
+          "user_cycles": 4779,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4167565205
+        },
+        "conventional": {
+          "kernel_cycles": 774,
+          "user_cycles": 4779,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4167565205
+        },
+        "traceopt": {
+          "kernel_cycles": 774,
+          "user_cycles": 4779,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 4167565205
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "branchy",
+      "n": 300,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 8149,
+          "padded_total": 32768
+        },
+        "traceopt": {
+          "user_cycles": 8149,
+          "padded_total": 32768
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 4148,
+          "user_cycles": 8153,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 2478802671
+        },
+        "conventional": {
+          "kernel_cycles": 4148,
+          "user_cycles": 8153,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 2478802671
+        },
+        "traceopt": {
+          "kernel_cycles": 4148,
+          "user_cycles": 8153,
+          "paging_cycles": 18635,
+          "total_cycles": 32768,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 2478802671
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 32768,
+        "unroll2": 32768,
+        "unroll4": 32768,
+        "unroll8": 32768
+      },
+      "best_variant_total": 32768,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "branchy",
+      "n": 3000,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 44599,
+          "padded_total": 131072
+        },
+        "traceopt": {
+          "user_cycles": 44599,
+          "padded_total": 131072
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 40550,
+          "user_cycles": 44555,
+          "paging_cycles": 18635,
+          "total_cycles": 131072,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 943839642
+        },
+        "conventional": {
+          "kernel_cycles": 40550,
+          "user_cycles": 44555,
+          "paging_cycles": 18635,
+          "total_cycles": 131072,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 943839642
+        },
+        "traceopt": {
+          "kernel_cycles": 40550,
+          "user_cycles": 44555,
+          "paging_cycles": 18635,
+          "total_cycles": 131072,
+          "segments": 1,
+          "code_bytes": 116,
+          "output": 943839642
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 131072,
+        "unroll2": 65536,
+        "unroll4": 65536,
+        "unroll8": 65536
+      },
+      "best_variant_total": 65536,
+      "best_variants": [
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "strided_rw",
+      "n": 5,
+      "selected": "unroll4",
+      "reason": "predicted padded total 131072 vs 262144 (50.0% lower)",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 73178,
+          "padded_total": 262144
+        },
+        "traceopt": {
+          "user_cycles": 48030,
+          "padded_total": 131072
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 69175,
+          "user_cycles": 73180,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 3528213632
+        },
+        "conventional": {
+          "kernel_cycles": 69175,
+          "user_cycles": 73180,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 3528213632
+        },
+        "traceopt": {
+          "kernel_cycles": 44026,
+          "user_cycles": 48031,
+          "paging_cycles": 61398,
+          "total_cycles": 131072,
+          "segments": 1,
+          "code_bytes": 1160,
+          "output": 3528213632
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 262144,
+        "unroll2": 131072,
+        "unroll4": 131072,
+        "unroll8": 131072
+      },
+      "best_variant_total": 131072,
+      "best_variants": [
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "strided_rw",
+      "n": 50,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 104993,
+          "padded_total": 262144
+        },
+        "traceopt": {
+          "user_cycles": 104993,
+          "padded_total": 262144
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 100990,
+          "user_cycles": 104995,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 1795524992
+        },
+        "conventional": {
+          "kernel_cycles": 100990,
+          "user_cycles": 104995,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 1795524992
+        },
+        "traceopt": {
+          "kernel_cycles": 100990,
+          "user_cycles": 104995,
+          "paging_cycles": 61154,
+          "total_cycles": 262144,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 1795524992
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 262144,
+        "unroll2": 262144,
+        "unroll4": 262144,
+        "unroll8": 262144
+      },
+      "best_variant_total": 262144,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "strided_rw",
+      "n": 300,
+      "selected": "unroll1",
+      "reason": "no candidate meets the policy; keeping baseline",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 281743,
+          "padded_total": 524288
+        },
+        "traceopt": {
+          "user_cycles": 281743,
+          "padded_total": 524288
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 277740,
+          "user_cycles": 281745,
+          "paging_cycles": 61154,
+          "total_cycles": 524288,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 2329007872
+        },
+        "conventional": {
+          "kernel_cycles": 277740,
+          "user_cycles": 281745,
+          "paging_cycles": 61154,
+          "total_cycles": 524288,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 2329007872
+        },
+        "traceopt": {
+          "kernel_cycles": 277740,
+          "user_cycles": 281745,
+          "paging_cycles": 61154,
+          "total_cycles": 524288,
+          "segments": 1,
+          "code_bytes": 140,
+          "output": 2329007872
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 524288,
+        "unroll2": 524288,
+        "unroll4": 524288,
+        "unroll8": 524288
+      },
+      "best_variant_total": 524288,
+      "best_variants": [
+        "unroll1",
+        "unroll2",
+        "unroll4",
+        "unroll8"
+      ]
+    },
+    {
+      "benchmark": "strided_rw",
+      "n": 3000,
+      "selected": "unroll4",
+      "reason": "predicted padded total 2097152 vs 2621440 (20.0% lower)",
+      "predicted": {
+        "baseline": {
+          "user_cycles": 2190643,
+          "padded_total": 2621440
+        },
+        "traceopt": {
+          "user_cycles": 1791120,
+          "padded_total": 2097152
+        }
+      },
+      "measured": {
+        "baseline": {
+          "kernel_cycles": 2186640,
+          "user_cycles": 2190645,
+          "paging_cycles": 159756,
+          "total_cycles": 2621440,
+          "segments": 3,
+          "code_bytes": 140,
+          "output": 676454464
+        },
+        "conventional": {
+          "kernel_cycles": 2186640,
+          "user_cycles": 2190645,
+          "paging_cycles": 159756,
+          "total_cycles": 2621440,
+          "segments": 3,
+          "code_bytes": 140,
+          "output": 676454464
+        },
+        "traceopt": {
+          "kernel_cycles": 1787116,
+          "user_cycles": 1791121,
+          "paging_cycles": 114535,
+          "total_cycles": 2097152,
+          "segments": 2,
+          "code_bytes": 1160,
+          "output": 676454464
+        }
+      },
+      "measured_variant_totals": {
+        "unroll1": 2621440,
+        "unroll2": 2228224,
+        "unroll4": 2097152,
+        "unroll8": 2097152
+      },
+      "best_variant_total": 2097152,
+      "best_variants": [
+        "unroll4",
+        "unroll8"
+      ]
+    }
+  ],
+  "errors": []
+}
