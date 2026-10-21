@@ -23,6 +23,7 @@ TARGET = ["--target=riscv32-unknown-elf", "-march=rv32im", "-mabi=ilp32"]
 _DISABLE = "llvm.loop.unroll.disable"
 _CLEARED = "traceopt.unroll.cleared"
 UNROLL_THRESHOLD = 1_000_000
+LLC_FLAGS = ["-O2", "-mattr=+m", "-target-abi=ilp32"]
 
 
 class ToolError(RuntimeError):
@@ -80,9 +81,20 @@ def emit_conventional_ir(src: Path, level: str, out: Path) -> Path:
 
 def codegen(ll: Path, out: Path) -> Path:
     """RISC-V object for the guest (TRACEOPT_KERNEL_OBJ)."""
-    _run(["llc", "-O2", "-mattr=+m", "-target-abi=ilp32", "-filetype=obj",
-          str(ll), "-o", str(out)])
+    _run(["llc", *LLC_FLAGS, "-filetype=obj", str(ll), "-o", str(out)])
     return out
+
+
+def assembly(ll: Path) -> str:
+    """The RISC-V assembly llc produces for `ll` (the same code as codegen)."""
+    return _run(["llc", *LLC_FLAGS, "-filetype=asm", str(ll), "-o", "-"])
+
+
+def machine_ir(ll: Path) -> str:
+    """llc's machine IR at the end of code generation, before pseudo-instruction
+    expansion. Its blocks name the IR blocks they came from, and it embeds the
+    IR as llc's own IR passes left it."""
+    return _run(["llc", *LLC_FLAGS, "-stop-before=riscv-expand-pseudo", str(ll), "-o", "-"])
 
 
 def symbol_size(obj: Path, symbol: str = "traceopt_kernel") -> int:
