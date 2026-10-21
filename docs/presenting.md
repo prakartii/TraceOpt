@@ -103,11 +103,12 @@ Other inputs, one per kind of case (all checked end to end; files are in
 | `nested_fnv 3000` | missed win | 2x would have halved the size, but its saving is inside the 10% margin; the verdict says so (taken with `--margin 5`) |
 | `examples/kernels/counter_table.c 1000` | missed win | the same, on custom code |
 | `xorshift 10000000` | large input, missed win | 80 million cycles in 79 segments; 8x would save 22% but is inside the margin |
+| `branchy 3000` | missed win | 2x would have halved the size; rejected as too risky |
+| `examples/kernels/fib_recursive.c 15` | margin saves a wrong prediction | recursion: the machine code calls a function, so TraceOpt falls back to the IR model, which wrongly predicts a smaller bucket for every unrolled version; the margin rejects them and the zkVM confirms they would not have won |
 | `xorshift 4294967295` | too large to run | the prediction (34 billion cycles) is above the limit, so the zkVM run is skipped |
 | `sum_squares 1000` | no loop left | LLVM replaced the loop by a formula; nothing to unroll |
 | `examples/kernels/collatz.c 300` | no prediction | data-dependent loop count: original kept rather than guess |
 | `examples/kernels/matrix_multiply.c 50` | 2D arrays | three nested loops; every version checked |
-| `examples/kernels/fib_recursive.c 15` | recursion | the checker follows the recursive calls |
 | `examples/kernels/switch_ops.c 1000` | switch | a switch inside the loop |
 | `examples/kernels/struct_points.c 50` | structs | fields of different sizes, laid out as on RISC-V |
 | `examples/kernels/string_hash.c 1000` | strings | a constant string read byte by byte |
