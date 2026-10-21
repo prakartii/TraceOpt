@@ -384,8 +384,13 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                     pred_rows, align="lrrrrrl"))
         methods = {v.name: v.prediction_method for v in result.variants}
         by_ir = [factor_label(k) for k, m in methods.items() if m == "ir"]
-        st.say(s.dim("program cycles: executed RISC-V instructions of each version's machine "
-                     "code + fixed cycles" + (f"; IR model for {', '.join(by_ir)}" if by_ir else "")))
+        if len(by_ir) == len(methods):
+            st.say(s.yellow("program cycles: IR model for every version (the machine code "
+                            "could not be mapped, see stage 3), so expect larger errors"))
+        else:
+            st.say(s.dim("program cycles: executed RISC-V instructions of each version's "
+                         "machine code + fixed cycles"
+                         + (f"; IR model for {', '.join(by_ir)}" if by_ir else "")))
         low = min(unpadded(r.predicted_user_cycles, r.paging_per_segment) for r in cands)
         st.say(s.dim("power-of-two sizes: "
                      + " → ".join(fmt(p) for p in power_of_two_ladder(low, scale))
