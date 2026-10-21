@@ -70,15 +70,28 @@ all eight stages live, and asks again. Things worth knowing:
 - Stage 4 takes 5–15 s on the memory-heavy kernel (every version runs in the
   Python IR interpreter); the rest takes a few seconds.
 
-Good inputs to suggest if they ask for "an interesting one":
+Good inputs to suggest if they ask for "an interesting one", one per kind
+of case (all checked end to end; files are in `examples/kernels/`):
 
-| Command | What it shows |
-|---|---|
-| `strided_rw 5` | unrolling 4x halves the proved size, confirmed by the zkVM |
-| `xorshift 10000000` | multi-segment run; unrolling 8x saves about 22% |
-| `xorshift 1000` | the tempting 8x is rejected as too risky |
-| `nested_fnv 3000` | every version rejected as too close to a bucket edge; the evaluation shows one would have won (a missed win) |
-| `examples/kernels/collatz.c 300` | data-dependent loop: no prediction, original kept |
+| Command (`scripts/live.sh ...`) | Case | What it shows |
+|---|---|---|
+| `strided_rw 5` | win | unrolling 4x halves the proved size, 262,144 → 131,072, confirmed by the zkVM |
+| `examples/kernels/counter_table.c 1000` | win on new code | 8x fits the smaller bucket: 65,536 → 32,768 |
+| `examples/kernels/counter_table.c 50` | nothing to gain | same program, smaller n: every version lands in the same bucket |
+| `xorshift 1000` | justified rejection | 4x and 8x look like wins but are too close to the edge; the zkVM shows they would not have won |
+| `nested_fnv 3000` | missed win | the safety margin rejected 2x, which would have halved the size; the verdict says so |
+| `xorshift 10000000` | large input | 80 million cycles, 79 segments; 8x saves 22% |
+| `xorshift 4294967295` | too large to run | the prediction (34 billion cycles) is above the limit, so the zkVM run is skipped |
+| `sum_squares 1000` | no loop left | LLVM replaced the loop by a formula; nothing to unroll |
+| `examples/kernels/collatz.c 300` | no prediction | data-dependent loop count: original kept rather than guess |
+| `examples/kernels/matrix_multiply.c 50` | 2D arrays | three nested loops; every version checked |
+| `examples/kernels/fib_recursive.c 15` | recursion | the checker follows the recursive calls |
+| `examples/kernels/switch_ops.c 1000` | switch | a switch inside the loop |
+| `examples/kernels/struct_points.c 50` | structs | fields of different sizes, laid out as on RISC-V |
+| `examples/kernels/string_hash.c 1000` | strings | a constant string read byte by byte |
+| `examples/kernels/float_sum.c 50` | unsupported feature | floating point: unrolled versions cannot be checked, so the original is kept |
+| `examples/kernels/divide_by_n.c 0` | undefined behavior | division by zero: no correct answer exists, stage 2 explains and stops (n = 7 works) |
+| `examples/kernels/uses_printf.c 5` | invalid kernel | library call: a one-line explanation instead of a crash |
 
 ## Likely questions
 
