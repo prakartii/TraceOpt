@@ -40,6 +40,7 @@ from traceopt.decision import Policy  # noqa: E402
 from traceopt.frequency import UnknownTripCount, dynamic_counts  # noqa: E402
 from traceopt.interp import InterpError, Interpreter  # noqa: E402
 from traceopt.ir import parse_module  # noqa: E402
+from traceopt.machine import MachineMapError, executed_instructions  # noqa: E402
 from traceopt.loops import find_loops, trip_count  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
 from traceopt.optimize import DIFF_MAX_N, FUNCTION, optimize  # noqa: E402
@@ -161,6 +162,48 @@ def measure(obj: Path, n: int) -> dict:
             "segments": s["segments"], "seconds": time.monotonic() - t}
 
 
+MACHINE_TEXT = {
+    "alu": "add, shift, xor, compare, constants",
+    "mul": "multiply",
+    "div": "divide, remainder",
+    "load": "memory reads",
+    "store": "memory writes",
+    "branch": "conditional branches",
+    "jump": "jumps and the return",
+}
+
+
+def show_machine_cost(executed: dict[str, float], model: CostModel, st: Stages) -> None:
+    """Stage 3 table: executed RISC-V instructions of the original, at one cycle each."""
+    s = st.s
+    rows = [[cls, MACHINE_TEXT[cls], fmt(executed[cls])] for cls in MACHINE_TEXT
+            if executed.get(cls)]
+    total = sum(executed.values())
+    fixed = model.machine_intercept + model.guest_overhead
+    rows.append(["fixed", "guest start-up and measurement (fitted)", fmt(fixed)])
+    rows.append([s.bold("total"), s.bold("predicted program cycles, original version"),
+                 s.bold(fmt(total + fixed))])
+    st.say("RISC-V instructions the original will execute (from llc's machine code; "
+           "each costs one zkVM cycle):")
+    print(table(["Kind", "Instructions", "Cycles"], rows, align="llr"))
+
+
+def show_ir_cost(counts: dict[str, float], model: CostModel, st: Stages) -> None:
+    """Stage 3 table for the IR model: executed IR operations times fitted weights."""
+    s = st.s
+    rows = []
+    for f, w in model.weights.items():
+        v = model.feature_value(f, counts)
+        rows.append([f, FEATURE_TEXT.get(f, f), fmt(v), f"{w:.3f}", fmt(w * v)])
+    rows.append(["fixed", "guest start-up + fitted intercept", "-", "-",
+                 fmt(model.intercept + model.guest_overhead)])
+    rows.append([s.bold("total"), s.bold("predicted program cycles, original version"),
+                 "", "", s.bold(fmt(model.user_cycles(counts)))])
+    st.say("How the IR model turns this into cycles (weights fitted on 64 measured zkVM runs):")
+    print(table(["Kind", "Includes", "Executed\nfor this n", "Cycles\neach", "Cycles"],
+                rows, align="llrrr"))
+
+
 def decision_check(rows: dict, measured: dict[str, dict], selected: str,
                    only_chosen: bool) -> str:
     """Whether the measurements agree with the choice, in one or two sentences."""
@@ -269,18 +312,14 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     else:
         st.say("no loops: LLVM may have replaced the loop by a formula (nothing to unroll)")
     try:
-        counts = dynamic_counts(fn, {"0": n})
-        op_rows = []
-        for f, w in model.weights.items():
-            v = model.feature_value(f, counts)
-            op_rows.append([f, FEATURE_TEXT.get(f, f), fmt(v), f"{w:.3f}", fmt(w * v)])
-        fixed = model.intercept + model.guest_overhead
-        op_rows.append(["fixed", "guest start-up + fitted intercept", "-", "-", fmt(fixed)])
-        op_rows.append([s.bold("total"), s.bold("predicted program cycles, original version"),
-                        "", "", s.bold(fmt(model.user_cycles(counts)))])
-        st.say("How the cost model turns this into cycles (weights fitted on 64 measured zkVM runs):")
-        print(table(["Kind", "Includes", "Executed\nfor this n", "Cycles\neach", "Cycles"],
-                    op_rows, align="llrrr"))
+        try:
+            if model.machine_intercept is None:
+                raise MachineMapError("no machine model")
+            show_machine_cost(executed_instructions(base_ir, {"0": n}), model, st)
+        except MachineMapError as e:
+            if model.machine_intercept is not None:
+                st.say(s.yellow(f"machine code not mapped ({e}); using the IR model"))
+            show_ir_cost(dynamic_counts(fn, {"0": n}), model, st)
     except UnknownTripCount as e:
         st.say(s.yellow(f"cannot count executed operations: {e}"))
     st.done()
@@ -342,6 +381,10 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         print(table(["Version", "Program\ncycles", "Paging\ncycles", "Needed\n(+4,113 fixed)",
                      "Proved as\n(power of 2)", "Padding\n(wasted)", "█ needed\n░ padding"],
                     pred_rows, align="lrrrrrl"))
+        methods = {v.name: v.prediction_method for v in result.variants}
+        by_ir = [factor_label(k) for k, m in methods.items() if m == "ir"]
+        st.say(s.dim("program cycles: executed RISC-V instructions of each version's machine "
+                     "code + fixed cycles" + (f"; IR model for {', '.join(by_ir)}" if by_ir else "")))
         low = min(unpadded(r.predicted_user_cycles, r.paging_per_segment) for r in cands)
         st.say(s.dim("power-of-two sizes: "
                      + " → ".join(fmt(p) for p in power_of_two_ladder(low, scale))
@@ -357,11 +400,15 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
             mark = s.green("✔ chosen" if r.name != "unroll1" else "✔ kept")
         elif r.note == "baseline":
             mark = "– baseline"
+        elif r.note == "eligible":
+            mark = s.yellow("– also safe")
         else:
             mark = s.red("✘ rejected")
-        decision_rows.append([factor_label(r.name), fmt(r.padded_total), mark,
-                              explain_note(r.note, policy.min_improvement,
-                                           policy.max_code_growth)])
+        why = explain_note(r.note, policy.min_improvement, policy.max_code_growth)
+        if r.note == "eligible" and r.name != selected:
+            why = (f"also a safe saving, but {factor_label(selected)} ranks first "
+                   "(smallest predicted size, then fewest predicted cycles)")
+        decision_rows.append([factor_label(r.name), fmt(r.padded_total), mark, why])
     print(table(["Version", "Predicted\nproved size", "Decision", "Why"], decision_rows,
                 align="lrll", max_widths={3: 50}))
     sel, base = rows[selected], rows["unroll1"]
