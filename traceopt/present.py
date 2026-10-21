@@ -7,6 +7,7 @@ modules produced, so a reader new to the project can follow them.
 from __future__ import annotations
 
 import re
+import textwrap
 
 from traceopt.segments import RESERVED_CYCLES
 
@@ -100,3 +101,65 @@ def outcome(record: dict) -> str:
     if chosen < base:
         return "won"
     return "missed" if record["best_variant_total"] < base else "kept"
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def visible_len(text: str) -> int:
+    """Length of `text` on screen, ignoring ANSI color codes."""
+    return len(_ANSI_RE.sub("", text))
+
+
+def _wrap_cell(text: str, width: int | None) -> list[str]:
+    """Split a cell into lines no wider than `width` (colored cells are not wrapped)."""
+    lines = text.split("\n")
+    if width is None or _ANSI_RE.search(text):
+        return lines
+    out = []
+    for line in lines:
+        out.extend(textwrap.wrap(line, width) or [""])
+    return out
+
+
+def table(headers: list[str] | None, rows: list[list[str]], align: str | None = None,
+          max_widths: dict[int, int] | None = None, indent: int = 6) -> str:
+    """A box-drawn table for the terminal.
+
+    With `headers` None the table has no header row. `align` has one letter
+    per column, 'l' or 'r' (default: left). Columns
+    listed in `max_widths` wrap plain-text cells at that width. Cells may
+    contain ANSI colors; widths are measured without them.
+    """
+    ncols = len(headers) if headers is not None else len(rows[0])
+    align = align or "l" * ncols
+    if len(align) != ncols or any(len(r) != ncols for r in rows):
+        raise ValueError("every row needs one cell per header")
+    max_widths = max_widths or {}
+    cells = [[_wrap_cell(str(c), max_widths.get(i)) for i, c in enumerate(row)]
+             for row in ([headers] if headers is not None else []) + rows]
+    widths = [max(visible_len(line) for row in cells for line in row[i]) for i in range(ncols)]
+    pad = " " * indent
+
+    def rule(left: str, mid: str, right: str) -> str:
+        return pad + left + mid.join("─" * (w + 2) for w in widths) + right
+
+    def render(row: list[list[str]]) -> list[str]:
+        height = max(len(c) for c in row)
+        lines = []
+        for k in range(height):
+            parts = []
+            for i, c in enumerate(row):
+                text = c[k] if k < len(c) else ""
+                gap = " " * (widths[i] - visible_len(text))
+                parts.append(gap + text if align[i] == "r" else text + gap)
+            lines.append(pad + "│ " + " │ ".join(parts) + " │")
+        return lines
+
+    out = [rule("┌", "┬", "┐")]
+    if headers is not None:
+        out += [*render(cells[0]), rule("├", "┼", "┤")]
+    for row in cells[1 if headers is not None else 0:]:
+        out.extend(render(row))
+    out.append(rule("└", "┴", "┘"))
+    return "\n".join(out)

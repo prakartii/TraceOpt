@@ -1,7 +1,7 @@
 import unittest
 
 from traceopt.present import (EMPTY, FULL, bucket_bar, explain_note, factor_label, fmt,
-                              outcome, power_of_two_ladder, unpadded)
+                              outcome, power_of_two_ladder, table, unpadded, visible_len)
 
 
 class PresentTest(unittest.TestCase):
@@ -57,6 +57,43 @@ class OutcomeTest(unittest.TestCase):
         self.assertEqual(outcome(record(65536, 65536, 65536)), "kept")
         self.assertEqual(outcome(record(131072, 131072, 65536)), "missed")
         self.assertEqual(outcome(record(65536, 131072, 65536)), "worse")
+
+
+class TableTest(unittest.TestCase):
+    def test_layout_and_alignment(self):
+        out = table(["Version", "Cycles"], [["original", "76,083"], ["4x", "56,136"]],
+                    align="lr", indent=0)
+        self.assertEqual(out.splitlines(), [
+            "┌──────────┬────────┐",
+            "│ Version  │ Cycles │",
+            "├──────────┼────────┤",
+            "│ original │ 76,083 │",
+            "│ 4x       │ 56,136 │",
+            "└──────────┴────────┘",
+        ])
+
+    def test_colors_do_not_count_toward_width(self):
+        green = "\033[32m✔ yes\033[0m"
+        self.assertEqual(visible_len(green), 5)
+        lines = table(["A"], [[green], ["plain"]], indent=0).splitlines()
+        self.assertEqual(len(lines[3]), len(lines[4]) + len(green) - 5)
+
+    def test_multiline_headers_and_wrapping(self):
+        lines = table(["Predicted\nsize", "Why"], [["131,072", "one two three four"]],
+                      align="rl", max_widths={1: 9}, indent=0).splitlines()
+        self.assertEqual(lines[1], "│ Predicted │ Why     │")
+        self.assertEqual(lines[2], "│      size │         │")
+        self.assertEqual(lines[4], "│   131,072 │ one two │")
+        self.assertEqual(lines[5], "│           │ three   │")
+        self.assertEqual(lines[6], "│           │ four    │")
+
+    def test_without_headers(self):
+        lines = table(None, [["Input", "n = 5"]], indent=0).splitlines()
+        self.assertEqual(lines, ["┌───────┬───────┐", "│ Input │ n = 5 │", "└───────┴───────┘"])
+
+    def test_rows_must_match_headers(self):
+        with self.assertRaises(ValueError):
+            table(["A", "B"], [["only one"]])
 
 
 if __name__ == "__main__":
