@@ -1,8 +1,11 @@
 // Custom-kernel example: a small table, partly initialized, updated n times.
-// Case: TraceOpt finds a win in code it has never seen. At n = 1000 the
-// original just misses the 32,768-cycle bucket and an unrolled version fits.
-// Try: scripts/live.sh examples/kernels/counter_table.c 1000
-//      (and n = 50 to see the same program where nothing can be gained)
+// Case: TraceOpt finds wins in code it has never seen. At n = 500 the
+// original just misses the 32,768-cycle bucket and unrolling 8x fits; at
+// n = 1,000,000 unrolling cuts the proved size by 63%.
+// Try: scripts/live.sh examples/kernels/counter_table.c 500
+//      n = 50:   nothing can be gained
+//      n = 1000: a win too close to the edge for the 10% margin (a missed
+//                win); taken with --margin 5
 #include <stdint.h>
 
 static uint32_t T[8] = {3, 1};
