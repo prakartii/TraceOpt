@@ -51,10 +51,11 @@ all eight stages live, and asks again. Things worth knowing:
   file natively with the host clang and runs it; for built-in kernels the
   Python reference is shown as well. Stage 8 compares the zkVM's answer with
   it.
-- **They can write their own kernel.** Any C file with
-  `uint32_t traceopt_kernel(uint32_t n)`, no library calls. Open an editor in
-  WSL (`nano mine.c`), write it, then `scripts/live.sh mine.c 100`.
-  `examples/kernels/` has two to start from. Loops, `switch`, recursion,
+- **They can write their own kernel.** Any C function with integer inputs
+  that returns an integer, any name, no library calls and no `#include
+  <stdio.h>`. Open an editor in WSL (`nano mine.c`), write it, then
+  `scripts/live.sh mine.c 100` (one value per input: `mine.c 100 -7` for two).
+  `examples/kernels/` has examples to start from. Loops, `switch`, recursion,
   2D arrays, structs, lookup tables and 64-bit math all work. Floating point
   runs, but its unrolled versions cannot be checked, so the original is kept.
   Anything unsupported gives a one-line "stopped: ..." message, never a

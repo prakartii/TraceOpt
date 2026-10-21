@@ -348,9 +348,11 @@ for what to say at each step and likely questions.
 ### Live mode: any program, any input (WSL)
 
 ```bash
-scripts/live.sh                                # asks for a program and n, repeatedly
+scripts/live.sh                                # asks for a program and inputs, repeatedly
 scripts/live.sh xorshift 777                   # a built-in kernel
 scripts/live.sh examples/kernels/poly_hash.c 12345   # your own C kernel
+scripts/live.sh mine.c 100 -7                  # a function with two inputs
+scripts/live.sh mine.c:compute 100             # name the function if there are several
 ```
 
 Each run prints eight stages as they happen, each as a table, with their
@@ -367,15 +369,35 @@ timings:
 | 7 | Run every version in the RISC Zero executor (`--only-chosen`: the original and the choice only) |
 | 8 | Predicted vs measured cycles and proved size for every version; zkVM answer vs expected; proving work saved; whether the decision was right (a justified rejection or a missed win) |
 
-**Your own kernel:** any C file defining `uint32_t traceopt_kernel(uint32_t n)`.
-It runs without an operating system, so it may use headers such as
-`<stdint.h>` but no library functions (`printf`, `malloc`). Loops, `if` and
+**Your own kernel:** any C function with integer inputs (8 to 64 bits, signed
+or unsigned; any number, up to 16 32-bit words in all) that returns an
+integer or nothing, for example
+
+```c
+int f(int n) {
+  int x = 1;
+  for (int i = 0; i < n; i++)
+    x = x * 3 ^ i;
+  return x;
+}
+```
+
+run as `scripts/live.sh f.c 1000`. TraceOpt optimizes `traceopt_kernel` if
+the file defines it, else the one function no other function calls (name
+another with `file.c:function`). Its signature is read from the IR: the zkVM
+guest calls it through a small generated entry function
+(`traceopt/signature.py`), and the native reference build gets a matching
+`main`. Pointer, array and floating-point parameters are rejected with a
+message; put arrays in globals. The kernel runs without an operating system,
+so it may use headers such as `<stdint.h>` but not `<stdio.h>`, and no
+library functions (`printf`, `malloc`). Loops, `if` and
 `switch`, helper functions and recursion, 8- to 64-bit integers (signed or
 unsigned), global and local arrays (also 2D), structs, lookup tables and
 strings all work: every one of these was tried in live mode with the zkVM
 answer checked. Floating point compiles and runs in the zkVM, but TraceOpt's
 answer checker does not support it, so unrolled versions are rejected to be
-safe and the original is kept. Inputs are 0 … 4,294,967,295. Inputs whose predicted proved size exceeds 2^31 cycles
+safe and the original is kept. Each input must fit its type (a built-in
+kernel's n is 0 … 4,294,967,295). Inputs whose predicted proved size exceeds 2^31 cycles
 skip the zkVM run (`--max-cycles` changes the limit). Undefined behavior such
 as division by zero is reported instead of compared. Examples are in
 [`examples/kernels/`](examples/kernels/).
@@ -386,7 +408,8 @@ as division by zero is reported instead of compared. Examples are in
 # Build the guest with one benchmark, run it for each n, check against the reference
 scripts/check_kernel.sh nested_fnv 1 100
 
-# Run the most recently built kernel directly: host <execute|prove> <probe|kernel> [n]
+# Run the most recently built kernel directly: host <execute|prove> <probe|kernel> [word ...]
+# (the kernel's inputs as 32-bit words; for traceopt_kernel, just n)
 ~/.cache/traceopt-target/release/host execute kernel 1000
 
 # Cap the segment size (2^18 cycles)
