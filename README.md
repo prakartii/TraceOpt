@@ -353,18 +353,19 @@ scripts/live.sh xorshift 777                   # a built-in kernel
 scripts/live.sh examples/kernels/poly_hash.c 12345   # your own C kernel
 ```
 
-Each run prints eight stages as they happen, with their timings:
+Each run prints eight stages as they happen, each as a table, with their
+timings:
 
 | Stage | What happens |
 |---|---|
 | 1 | The program and what the input means |
 | 2 | The **expected answer**, computed without TraceOpt: a native build with the host clang, and the Python reference for built-in kernels |
-| 3 | Compile to LLVM IR; the loops TraceOpt finds and how many times each runs for this n |
+| 3 | Compile to LLVM IR; the loops TraceOpt finds and how many times each runs for this n; how the cost model turns the executed operations into cycles |
 | 4 | Build the 1x/2x/4x/8x versions; check each gives the same answers in the IR interpreter (including at this n, up to 2,000) |
 | 5 | Predicted cycles and proved (padded) size of each version, with bar charts |
 | 6 | The decision and a reason for every version |
-| 7 | Run the original and the chosen version in the RISC Zero executor |
-| 8 | Verdict: zkVM answer vs expected, prediction vs measurement, proving work saved |
+| 7 | Run every version in the RISC Zero executor (`--only-chosen`: the original and the choice only) |
+| 8 | Predicted vs measured cycles and proved size for every version; zkVM answer vs expected; proving work saved; whether the decision was right (a justified rejection or a missed win) |
 
 **Your own kernel:** any C file defining `uint32_t traceopt_kernel(uint32_t n)`.
 It runs without an operating system, so it may use headers such as
