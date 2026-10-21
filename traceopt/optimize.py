@@ -39,7 +39,8 @@ class Variant:
     data_pages: int
     predicted_kernel_cycles: float | None
     prediction_unavailable: str | None
-    differential_inputs: list[int]
+    # Inputs checked: values of n for a one-parameter kernel, else argument lists.
+    differential_inputs: list
     differential_failure: str | None
     same_as: str | None = None    # same object code as this smaller factor
     # "machine" (executed RISC-V instructions) or "ir" (the IR model fallback)
@@ -75,28 +76,52 @@ class Result:
         }
 
 
-def _differential(base: Interpreter, variant: Interpreter, inputs: list[int]) -> str | None:
+def _label(params: list[str], args: dict[str, int]) -> str:
+    if len(params) == 1:
+        return f"n={args[params[0]]}"
+    return "inputs (" + ", ".join(str(args[p]) for p in params) + ")"
+
+
+def _differential(base: Interpreter, variant: Interpreter, inputs: list[dict[str, int]],
+                  function: str, params: list[str]) -> str | None:
     """None if the variant returns the baseline's value for every input."""
-    for n in inputs:
+    for args in inputs:
         try:
-            want, _ = base.run(FUNCTION, {"0": n})
-            got, _ = variant.run(FUNCTION, {"0": n})
+            want, _ = base.run(function, args)
+            got, _ = variant.run(function, args)
         except InterpError as e:
-            return f"n={n}: {e}"
+            return f"{_label(params, args)}: {e}"
         if got != want:
-            return f"n={n}: returned {got}, baseline {want}"
+            return f"{_label(params, args)}: returned {got}, baseline {want}"
     return None
 
 
+def differential_inputs(params: list[str], args: dict[str, int]) -> list[dict[str, int]]:
+    """Inputs for the differential test: every parameter set to each of
+    DIFF_INPUTS, plus the requested arguments if they are all small."""
+    inputs = [{p: d for p in params} for d in DIFF_INPUTS]
+    requested = {p: args[p] for p in params if p in args}
+    if params and len(requested) == len(params) and requested not in inputs \
+            and all(abs(v) <= DIFF_MAX_N for v in requested.values()):
+        inputs.append(requested)
+    if len(params) == 1:
+        inputs.sort(key=lambda a: a[params[0]])
+    return inputs if params else [{}]
+
+
 def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
-             factors: tuple[int, ...] = DEFAULT_FACTORS, policy: Policy = Policy()) -> Result:
+             factors: tuple[int, ...] = DEFAULT_FACTORS, policy: Policy = Policy(),
+             function: str = FUNCTION) -> Result:
+    """Unroll variants of `function` in `source`, predicted for `args`
+    (one value per IR parameter name, e.g. {"0": n}), and the decision."""
     if 1 not in factors:
         raise ValueError("factor 1 (the baseline) must be among the candidates")
     work.mkdir(parents=True, exist_ok=True)
     base_ir = toolchain.emit_base_ir(source, work / "base.ll")
     base_interp = Interpreter(base_ir.read_text())
-    n = args.get("0")
-    inputs = sorted(set(DIFF_INPUTS) | ({n} if n is not None and n <= DIFF_MAX_N else set()))
+    params = parse_module(base_ir.read_text()).functions[function].params
+    inputs = differential_inputs(params, args)
+    shown = [a[params[0]] if len(params) == 1 else [a[p] for p in params] for a in inputs]
 
     variants = []
     seen: dict[str, str] = {}
@@ -107,12 +132,12 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
         # opt reprints IR even when it changes nothing, so compare the code.
         same_as = seen.setdefault(obj.read_bytes().hex(), f"unroll{k}")
         same_as = None if same_as == f"unroll{k}" else same_as
-        fn = parse_module(text).functions[FUNCTION]
+        fn = parse_module(text).functions[function]
         kernel, why, method, executed = None, None, None, None
         try:
             if model.machine_intercept is not None:
                 try:
-                    executed = executed_instructions(ir, args, FUNCTION)
+                    executed = executed_instructions(ir, args, function)
                     kernel = model.machine_kernel_cycles(sum(executed.values()))
                     method = "machine"
                 except MachineMapError:
@@ -121,10 +146,11 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
                 kernel, method = model.kernel_cycles(dynamic_counts(fn, args)), "ir"
         except UnknownTripCount as e:
             kernel, why, method = None, str(e), None
-        diff = None if k == 1 else _differential(base_interp, Interpreter(text), inputs)
-        variants.append(Variant(k, ir, obj, toolchain.symbol_size(obj),
-                                footprint(text, FUNCTION).data_pages, kernel, why,
-                                inputs, diff, same_as, method,
+        diff = None if k == 1 else _differential(base_interp, Interpreter(text), inputs,
+                                                 function, params)
+        variants.append(Variant(k, ir, obj, toolchain.symbol_size(obj, function),
+                                footprint(text, function).data_pages, kernel, why,
+                                shown, diff, same_as, method,
                                 dict(executed) if executed is not None else None))
 
     baseline = next(v for v in variants if v.factor == 1)
