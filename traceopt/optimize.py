@@ -1,7 +1,9 @@
 """Choose an unroll factor for a C kernel by predicted proving cost.
 
 For each factor this generates the variant with LLVM (traceopt/toolchain.py),
-predicts its user and paging cycles with a calibrated CostModel, checks its
+predicts its user and paging cycles with a calibrated CostModel (from the
+executed RISC-V instructions of its machine code when they can be mapped,
+traceopt/machine.py, otherwise from its IR instruction counts), checks its
 outputs against the baseline in the IR interpreter (a differential test, not
 a proof of equivalence), and passes the candidates to the decision rule in
 traceopt/decision.py.
@@ -18,6 +20,7 @@ from traceopt.footprint import PAGE_BYTES, footprint
 from traceopt.frequency import UnknownTripCount, dynamic_counts
 from traceopt.interp import InterpError, Interpreter
 from traceopt.ir import parse_module
+from traceopt.machine import MachineMapError, executed_instructions
 from traceopt.model import CostModel
 
 FUNCTION = "traceopt_kernel"
@@ -39,6 +42,9 @@ class Variant:
     differential_inputs: list[int]
     differential_failure: str | None
     same_as: str | None = None    # same object code as this smaller factor
+    # "machine" (executed RISC-V instructions) or "ir" (the IR model fallback)
+    prediction_method: str | None = None
+    executed_instructions: dict[str, float] | None = None   # by class, machine method
 
     @property
     def name(self) -> str:
@@ -102,15 +108,24 @@ def optimize(source: Path, args: dict[str, int], model: CostModel, work: Path,
         same_as = seen.setdefault(obj.read_bytes().hex(), f"unroll{k}")
         same_as = None if same_as == f"unroll{k}" else same_as
         fn = parse_module(text).functions[FUNCTION]
+        kernel, why, method, executed = None, None, None, None
         try:
-            kernel = model.kernel_cycles(dynamic_counts(fn, args))
-            why = None
+            if model.machine_intercept is not None:
+                try:
+                    executed = executed_instructions(ir, args, FUNCTION)
+                    kernel = model.machine_kernel_cycles(sum(executed.values()))
+                    method = "machine"
+                except MachineMapError:
+                    pass
+            if kernel is None:
+                kernel, method = model.kernel_cycles(dynamic_counts(fn, args)), "ir"
         except UnknownTripCount as e:
-            kernel, why = None, str(e)
+            kernel, why, method = None, str(e), None
         diff = None if k == 1 else _differential(base_interp, Interpreter(text), inputs)
         variants.append(Variant(k, ir, obj, toolchain.symbol_size(obj),
                                 footprint(text, FUNCTION).data_pages, kernel, why,
-                                inputs, diff, same_as))
+                                inputs, diff, same_as, method,
+                                dict(executed) if executed is not None else None))
 
     baseline = next(v for v in variants if v.factor == 1)
 
