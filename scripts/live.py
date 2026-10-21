@@ -6,17 +6,20 @@
     scripts/live.sh path/to/mine.c 42      # your own C kernel
 
 A kernel is any C file defining `uint32_t traceopt_kernel(uint32_t n)`
-without library calls. Every stage prints as it finishes:
+without library calls. Every stage prints a table as it finishes:
 
   1. the program and the input
   2. the expected answer, computed without TraceOpt (native build; also the
      Python reference for the built-in kernels)
-  3. compile to LLVM IR and find the loops and their trip counts for this n
+  3. compile to LLVM IR, find the loops and their trip counts for this n, and
+     turn the executed operations into predicted cycles
   4. build the unrolled versions and check they give the same answers
   5. predict the cycles and proved (padded) size of each version
-  6. choose a version
-  7. run the original and the choice in the RISC Zero zkVM
-  8. verdict: zkVM answer vs expected, prediction vs measurement
+  6. choose a version, with the reason for each
+  7. run every version in the RISC Zero zkVM (--only-chosen: the original and
+     the choice only)
+  8. verdict: predicted vs measured for every version, the zkVM answers vs
+     the expected one, and whether the decision was right
 """
 
 from __future__ import annotations
@@ -41,7 +44,7 @@ from traceopt.loops import find_loops, trip_count  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
 from traceopt.optimize import DIFF_MAX_N, FUNCTION, optimize  # noqa: E402
 from traceopt.present import (bucket_bar, explain_note, factor_label, fmt,  # noqa: E402
-                              power_of_two_ladder, unpadded)
+                              power_of_two_ladder, table, unpadded)
 
 BUILTIN = {
     "xorshift": ("n rounds of the xorshift32 random-number generator",
@@ -60,6 +63,11 @@ BUILTIN = {
 DEFAULT_MAX_CYCLES = 1 << 31
 PYTHON_REFERENCE_MAX_N = 100_000   # the Python references are slow for huge n
 U32_MAX = (1 << 32) - 1
+FEATURE_TEXT = {   # the instruction classes of results/model-clang21.json, in words
+    "compute": "arithmetic, compares, casts, address math",
+    "memory": "loads and stores",
+    "control": "branches, jumps, returns",
+}
 
 
 class Style:
@@ -153,8 +161,35 @@ def measure(obj: Path, n: int) -> dict:
             "segments": s["segments"], "seconds": time.monotonic() - t}
 
 
+def decision_check(rows: dict, measured: dict[str, dict], selected: str,
+                   only_chosen: bool) -> str:
+    """Whether the measurements agree with the choice, in one or two sentences."""
+    chosen = measured[selected]["total_cycles"]
+    if set(measured) <= {"unroll1", selected}:
+        if only_chosen:
+            return ("only the original and the choice were run (--only-chosen), so other "
+                    "versions were not checked")
+        return ("Safe: no other version had a cost prediction (a loop count depends on "
+                "the data), so TraceOpt kept the original rather than guess.")
+    better = [k for k, m in measured.items() if m["total_cycles"] < chosen]
+    if better:
+        k = min(better, key=lambda k: measured[k]["total_cycles"])
+        return (f"Missed win: {factor_label(k)} measured {fmt(measured[k]['total_cycles'])}, "
+                f"smaller than the choice ({fmt(chosen)}). TraceOpt rejected it because the "
+                "saving did not survive a 10% prediction error: the safety margin cost a win.")
+    justified = [k for k, m in measured.items()
+                 if k != selected and k in rows and rows[k].padded_total is not None
+                 and rows[k].padded_total < chosen <= m["total_cycles"]]
+    text = f"Yes: no version measured smaller than the choice ({fmt(chosen)})."
+    for k in justified:
+        text += (f" Rejecting {factor_label(k)} was right: predicted "
+                 f"{fmt(rows[k].padded_total)}, measured {fmt(measured[k]['total_cycles'])}.")
+    return text
+
+
 def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy,
-        work: Path, st: Stages, max_cycles: int, do_measure: bool) -> bool:
+        work: Path, st: Stages, max_cycles: int, do_measure: bool,
+        only_chosen: bool = False) -> bool:
     s = st.s
     label = builtin or src.name
     work = work / f"{label.replace('.', '_')}-{n}"
@@ -170,12 +205,12 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                          "function TraceOpt optimizes and the zkVM runs")
     for i, line in enumerate(src.read_text().splitlines(), 1):
         print(f"      {s.dim(f'{i:3}')}  {line}")
-    if builtin:
-        what, out = BUILTIN[builtin]
-        st.say(f"\nInput  n = {n:,}: {what}")
-        st.say(f"Output: {out}")
-    else:
-        st.say(f"\nInput  n = {n:,}; output: the value traceopt_kernel(n) returns")
+    what, out = BUILTIN.get(builtin, ("the argument passed to traceopt_kernel",
+                                      "the value traceopt_kernel(n) returns"))
+    print(table(None, [["Program", f"{label} ({'built-in' if builtin else 'your C file'})"],
+                           ["Input", f"n = {n:,}"],
+                           ["What n means", what],
+                           ["Output", out]], max_widths={1: 64}))
     st.done()
 
     # 2. Expected answer, independently of TraceOpt --------------------------
@@ -185,17 +220,19 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         expected = native.run(exe, n)
     except native.NativeError as e:
         raise StageError(str(e)) from None
-    st.say(f"native build (host clang, x86-64): {s.bold(str(expected))}")
+    answers = [["Native build (host clang, x86-64)", s.bold(str(expected)), "this is the expected answer"]]
     if builtin and n <= PYTHON_REFERENCE_MAX_N:
         py = KERNELS[builtin](n)
-        agree = s.green("agrees") if py == expected else s.red("DISAGREES")
-        st.say(f"Python reference (tests/reference.py): {py}  {agree}")
+        answers.append(["Python reference (tests/reference.py)", str(py),
+                        s.green("✔ agrees") if py == expected else s.red("✘ DISAGREES")])
     elif builtin:
-        st.say(s.dim(f"Python reference skipped for n > {PYTHON_REFERENCE_MAX_N:,} (slow)"))
+        answers.append(["Python reference (tests/reference.py)", "-",
+                        s.dim(f"skipped for n > {PYTHON_REFERENCE_MAX_N:,} (slow)")])
+    print(table(["Computed by", "Answer", "Check"], answers, align="lrl"))
     st.done()
 
     # 3. Compile and analyze --------------------------------------------------
-    st.begin(3, "Compile to LLVM IR and analyze the loops (static analysis)")
+    st.begin(3, "Compile to LLVM IR and analyze the loops (static analysis, nothing runs)")
     try:
         base_ir = toolchain.emit_base_ir(src, work / "base.ll")
     except Exception as e:  # clang's message is the useful part
@@ -210,27 +247,40 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     st.say(f"clang -O1 (unrolling off): {len(fn.blocks)} basic blocks, "
            f"{sum(len(b.instructions) for b in fn.blocks)} IR instructions")
     loops = find_loops(fn)
-    if not loops:
-        st.say("no loops: LLVM may have replaced the loop by a formula (nothing to unroll)")
     order = {b.label: i for i, b in enumerate(fn.blocks)}
+    loop_rows = []
 
-    def show(lp, indent: int) -> None:
+    def add_loop(lp, depth: int, outer_total: int | None) -> None:
         tc = trip_count(fn, lp, {"0": n})
-        runs = (f"runs {fmt(tc)} times each time it is reached" if tc is not None
-                else "run count not determined statically for this n")
-        blocks = f"{len(lp.body)} block" + ("s" if len(lp.body) != 1 else "")
-        st.say(f"{'   ' * indent}{'└ inner ' if indent else ''}loop at %{lp.header} "
-               f"({blocks}): {runs}")
+        total = None if tc is None or outer_total is None else tc * outer_total
+        loop_rows.append([("  " * depth) + ("└ " if depth else "") + f"%{lp.header}",
+                          "top level" if depth == 0 else f"loop %{lp.parent.header}",
+                          str(len(lp.body)),
+                          fmt(tc) if tc is not None else s.yellow("unknown"),
+                          fmt(total) if total is not None else s.yellow("unknown")])
         for child in sorted(lp.children, key=lambda c: order[c.header]):
-            show(child, indent + 1)
+            add_loop(child, depth + 1, total)
 
     for lp in sorted((lp for lp in loops if lp.parent is None), key=lambda lp: order[lp.header]):
-        show(lp, 0)
+        add_loop(lp, 0, 1)
+    if loop_rows:
+        print(table(["Loop", "Inside", "Blocks", "Runs each time\nit is reached",
+                     "Iterations in\ntotal for this n"], loop_rows, align="llrrr"))
+    else:
+        st.say("no loops: LLVM may have replaced the loop by a formula (nothing to unroll)")
     try:
         counts = dynamic_counts(fn, {"0": n})
-        executed = {f: round(model.feature_value(f, counts)) for f in model.weights}
-        st.say("operations the original will execute for this n: "
-               + ", ".join(f"{fmt(v)} {f}" for f, v in executed.items()))
+        op_rows = []
+        for f, w in model.weights.items():
+            v = model.feature_value(f, counts)
+            op_rows.append([f, FEATURE_TEXT.get(f, f), fmt(v), f"{w:.3f}", fmt(w * v)])
+        fixed = model.intercept + model.guest_overhead
+        op_rows.append(["fixed", "guest start-up + fitted intercept", "-", "-", fmt(fixed)])
+        op_rows.append([s.bold("total"), s.bold("predicted program cycles, original version"),
+                        "", "", s.bold(fmt(model.user_cycles(counts)))])
+        st.say("How the cost model turns this into cycles (weights fitted on 64 measured zkVM runs):")
+        print(table(["Kind", "Includes", "Executed\nfor this n", "Cycles\neach", "Cycles"],
+                    op_rows, align="llrrr"))
     except UnknownTripCount as e:
         st.say(s.yellow(f"cannot count executed operations: {e}"))
     st.done()
@@ -242,28 +292,32 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     result = optimize(src, {"0": n}, model, work, policy=policy)
     rows = {r.name: r for r in result.decision.rows}
     show_n = n <= DIFF_MAX_N
-    head = f"{'version':26} {'code size':>10}  {'same answers?':28}"
-    print("      " + head + (f" {'answer at your n':>17}" if show_n else ""))
+    version_rows = []
     for v in result.variants:
         if v.factor == 1:
             check = "reference for the others"
         elif v.same_as:
             check = f"same machine code as {factor_label(v.same_as)}"
         elif v.differential_failure and ": returned " in v.differential_failure:
-            check = s.red(f"NO, different answer ({v.differential_failure})")
+            check = s.red(f"✘ NO, different answer ({v.differential_failure})")
         elif v.differential_failure:
-            check = s.yellow(f"could not check ({v.differential_failure}); rejected to be safe")
+            check = s.yellow("? could not check: rejected to be safe")
         else:
-            check = s.green(f"yes, on {len(v.differential_inputs)} inputs")
-        line = f"{factor_label(v.name):26} {fmt(v.code_bytes) + ' B':>10}  {check:28}"
+            check = s.green(f"✔ yes, on {len(v.differential_inputs)} inputs")
+        row = [factor_label(v.name), fmt(v.code_bytes) + " B", check]
         if show_n:
             try:
                 got, _ = Interpreter(v.ir.read_text()).run(FUNCTION, {"0": n})
-                got_s = s.green(str(got)) if got == expected else s.red(str(got))
-            except InterpError as e:
-                got_s = s.yellow(f"interpreter: {e}")
-            line += f" {got_s:>17}"
-        print("      " + line)
+                row.append(s.green(f"{got} ✔") if got == expected else s.red(f"{got} ✘"))
+            except InterpError:
+                row.append(s.yellow("could not run"))
+        version_rows.append(row)
+    print(table(["Version", "Code size", "Same answers as\nthe original?"]
+                + (["Answer at\nyour n"] if show_n else []), version_rows,
+                align="lrl" + ("r" if show_n else "")))
+    for v in result.variants:
+        if v.differential_failure and ": returned " not in v.differential_failure:
+            st.say(s.dim(f"{factor_label(v.name)}: {v.differential_failure}"))
     inputs = result.variants[0].differential_inputs
     st.say(s.dim(f"checked in TraceOpt's IR interpreter on n = {', '.join(map(str, inputs))}"
                  + ("" if show_n else f"; your n is above {DIFF_MAX_N:,}, so the zkVM run "
@@ -277,14 +331,17 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
         st.say(s.yellow("no prediction possible (a loop count depends on data); "
                         "TraceOpt keeps the original"))
     else:
-        print(f"      {'version':26} {'program':>11} {'paging':>8} {'needed':>11} "
-              f"{'proved as':>11}  {s.dim('█ needed ░ padding')}")
         scale = max(r.padded_total for r in cands)
+        pred_rows = []
         for r in cands:
             used = unpadded(r.predicted_user_cycles, r.paging_per_segment)
-            print(f"      {factor_label(r.name):26} {fmt(r.predicted_user_cycles):>11} "
-                  f"{fmt(r.paging_per_segment):>8} {fmt(used):>11} {fmt(r.padded_total):>11}  "
-                  f"{bucket_bar(used, r.padded_total, scale, 24)}")
+            pred_rows.append([factor_label(r.name), fmt(r.predicted_user_cycles),
+                              fmt(r.paging_per_segment), fmt(used), s.bold(fmt(r.padded_total)),
+                              fmt(max(0, r.padded_total - used)),
+                              bucket_bar(used, r.padded_total, scale, 14)])
+        print(table(["Version", "Program\ncycles", "Paging\ncycles", "Needed\n(+4,113 fixed)",
+                     "Proved as\n(power of 2)", "Padding\n(wasted)", "█ needed\n░ padding"],
+                    pred_rows, align="lrrrrrl"))
         low = min(unpadded(r.predicted_user_cycles, r.paging_per_segment) for r in cands)
         st.say(s.dim("power-of-two sizes: "
                      + " → ".join(fmt(p) for p in power_of_two_ladder(low, scale))
@@ -292,14 +349,23 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     st.done()
 
     # 6. Decision ------------------------------------------------------------------
-    st.begin(6, "Decide")
+    st.begin(6, "Decide (accept only a saving that survives a 10% prediction error)")
+    selected = result.decision.selected
+    decision_rows = []
     for r in result.decision.rows:
-        mark = (s.green("✔") if r.name == result.decision.selected
-                else "–" if r.note == "baseline" else "✘")
-        st.say(f"{mark} {factor_label(r.name):26} "
-               f"{explain_note(r.note, policy.min_improvement, policy.max_code_growth)}")
-    sel, base = rows[result.decision.selected], rows["unroll1"]
-    if result.decision.selected == "unroll1":
+        if r.name == selected:
+            mark = s.green("✔ chosen" if r.name != "unroll1" else "✔ kept")
+        elif r.note == "baseline":
+            mark = "– baseline"
+        else:
+            mark = s.red("✘ rejected")
+        decision_rows.append([factor_label(r.name), fmt(r.padded_total), mark,
+                              explain_note(r.note, policy.min_improvement,
+                                           policy.max_code_growth)])
+    print(table(["Version", "Predicted\nproved size", "Decision", "Why"], decision_rows,
+                align="lrll", max_widths={3: 50}))
+    sel, base = rows[selected], rows["unroll1"]
+    if selected == "unroll1":
         st.say(s.bold("→ keep the original: no version is a safe saving"))
     else:
         st.say(s.bold(f"→ choose {factor_label(sel.name)}: predicted proved size "
@@ -307,7 +373,7 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
     st.done()
 
     # 7. zkVM ----------------------------------------------------------------------
-    st.begin(7, "Run in the RISC Zero zkVM (executor)")
+    st.begin(7, "Run in the RISC Zero zkVM (executor) to check the prediction")
     measured: dict[str, dict] = {}
     biggest = max((r.padded_total or 0) for r in result.decision.rows)
     if not do_measure:
@@ -317,43 +383,81 @@ def run(src: Path, builtin: str | None, n: int, model: CostModel, policy: Policy
                         f"{fmt(max_cycles)} limit (--max-cycles); TraceOpt's own prediction "
                         "is what tells us this run would be too long"))
     else:
-        objs = {v.name: v.obj for v in result.variants}
-        for name in dict.fromkeys(["unroll1", result.decision.selected]):
-            st.say(s.dim(f"linking {factor_label(name)} into the guest and executing..."))
-            m = measure(objs[name], n)
-            measured[name] = m
-            ok = s.green("correct") if m["output"] == expected else s.red("WRONG")
-            st.say(f"{factor_label(name):26} answer {m['output']} ({ok}), "
-                   f"{fmt(m['user_cycles'])} program cycles, proved as "
-                   f"{fmt(m['total_cycles'])} in {m['segments']} segment(s), "
-                   f"{m['seconds']:.1f} s")
+        variants = {v.name: v for v in result.variants}
+        names = ["unroll1", selected]
+        if not only_chosen:
+            # The other versions are run only to show what the decision avoided.
+            # Versions without a prediction (unknown loop counts) have no row.
+            names += [v.name for v in result.variants if not v.same_as and v.name in rows
+                      and rows[v.name].padded_total is not None]
+        for name in dict.fromkeys(names):
+            print(s.dim(f"      running {factor_label(name)} in the zkVM..."), end="", flush=True)
+            measured[name] = measure(variants[name].obj, n)
+            print(s.dim(f" {measured[name]['seconds']:.1f} s"), flush=True)
+        for v in result.variants:   # identical machine code measures the same
+            if v.same_as in measured and v.name not in measured:
+                measured[v.name] = measured[v.same_as]
+        run_rows = []
+        for v in result.variants:
+            m = measured.get(v.name)
+            if m is None:
+                continue
+            right = m["output"] == expected
+            run_rows.append([factor_label(v.name)
+                             + (s.dim(" (chosen)") if v.name == selected != "unroll1" else ""),
+                             str(m["output"]),
+                             s.green("✔ yes") if right else s.red("✘ NO"),
+                             fmt(m["user_cycles"]), fmt(m["paging_cycles"]),
+                             s.bold(fmt(m["total_cycles"])), str(m["segments"]),
+                             f"{m['seconds']:.1f} s"])
+        print(table(["Version", "zkVM answer", "Correct?", "Program\ncycles", "Paging\ncycles",
+                     "Proved\nsize", "Segments", "Time"], run_rows, align="lrlrrrrr"))
     st.done()
 
     # 8. Verdict ---------------------------------------------------------------------
-    st.begin(8, "Verdict")
+    st.begin(8, "Verdict: prediction vs measurement")
+    cmp_rows = []
+    for r in result.decision.rows:
+        m = measured.get(r.name)
+        err = (f"{(r.predicted_user_cycles - m['user_cycles']) / m['user_cycles']:+.1%}"
+               if m and r.predicted_user_cycles is not None else "-")
+        bucket = "-"
+        if m and r.padded_total is not None:
+            bucket = (s.green("✔ exact") if r.padded_total == m["total_cycles"]
+                      else s.yellow("✘ off"))
+        cmp_rows.append([factor_label(r.name)
+                         + (s.dim(" (chosen)") if r.name == selected != "unroll1" else ""),
+                         fmt(r.predicted_user_cycles), fmt(m["user_cycles"]) if m else "-", err,
+                         fmt(r.padded_total), fmt(m["total_cycles"]) if m else "-", bucket])
+    print(table(["Version", "Predicted\nprogram cycles", "Measured\nprogram cycles", "Error",
+                 "Predicted\nproved size", "Measured\nproved size", "Size\nright?"],
+                cmp_rows, align="lrrrrrl"))
+
     ok = True
-    st.say(f"expected answer         : {expected}")
-    for name, m in measured.items():
+    summary = [["Expected answer (native build)", str(expected)]]
+    for name in dict.fromkeys(["unroll1", selected]):
+        m = measured.get(name)
+        if m is None:
+            continue
         right = m["output"] == expected
         ok &= right
-        mark = s.green("✔ matches") if right else s.red("✘ does not match")
-        st.say(f"zkVM, {factor_label(name):18}: {m['output']}  {mark}")
-        r = rows[name]
-        if r.padded_total is not None:
-            err = (r.predicted_user_cycles - m["user_cycles"]) / m["user_cycles"]
-            exact = (s.green("exactly right") if r.padded_total == m["total_cycles"]
-                     else s.yellow(f"measured {fmt(m['total_cycles'])}"))
-            st.say(f"  prediction: cycles off by {err:+.1%}; proved size "
-                   f"{fmt(r.padded_total)}, {exact}")
-    if len(measured) == 2:
-        a, b = measured["unroll1"]["total_cycles"], measured[result.decision.selected]["total_cycles"]
+        summary.append([f"zkVM answer, {factor_label(name)}",
+                        f"{m['output']}  " + (s.green("✔ matches") if right
+                                              else s.red("✘ does not match"))])
+    if "unroll1" in measured and selected in measured:
+        a, b = measured["unroll1"]["total_cycles"], measured[selected]["total_cycles"]
         change = 1 - b / a
         if change > 0:
-            st.say(s.bold(f"proving work: {fmt(a)} → {fmt(b)} ({change:.0%} less)"))
+            saved = s.green(f"{fmt(a)} → {fmt(b)} ({change:.0%} less)")
         elif change < 0:
-            st.say(s.red(f"proving work: {fmt(a)} → {fmt(b)} ({-change:.0%} MORE)"))
+            saved = s.red(f"{fmt(a)} → {fmt(b)} ({-change:.0%} MORE)")
         else:
-            st.say(s.bold(f"proving work unchanged at {fmt(a)}"))
+            saved = f"unchanged at {fmt(a)}"
+        summary.append(["Proving work (measured proved size)", saved])
+        summary.append(["Was the decision right?", decision_check(rows, measured, selected, only_chosen)])
+    elif not measured:
+        summary.append(["zkVM", "not run, so only the predictions are shown"])
+    print(table(["Verdict", "Result"], summary, max_widths={1: 60}))
     st.done()
     return ok
 
@@ -390,7 +494,7 @@ def interactive(args, model, policy, st: Stages) -> int:
             src, builtin = resolve_program(prog)
             n = parse_n(n_text)
             run(src, builtin, n, model, policy, args.work, st, args.max_cycles,
-                not args.no_measure)
+                not args.no_measure, args.only_chosen)
         except StageError as e:
             print(s.red(f"\n  stopped: {e}"))
         except Exception as e:  # keep the session alive on inputs TraceOpt cannot handle
@@ -407,6 +511,9 @@ def main() -> int:
     parser.add_argument("--max-cycles", type=int, default=DEFAULT_MAX_CYCLES,
                         help="skip the zkVM run above this predicted proved size")
     parser.add_argument("--no-measure", action="store_true", help="skip the zkVM runs")
+    parser.add_argument("--only-chosen", action="store_true",
+                        help="run only the original and the chosen version in the zkVM "
+                             "(faster; the other versions are not checked)")
     args = parser.parse_args()
 
     if not toolchain.available():
@@ -427,7 +534,7 @@ def main() -> int:
         src, builtin = resolve_program(args.program)
         n = parse_n(args.n)
         ok = run(src, builtin, n, model, policy, args.work, st, args.max_cycles,
-                 not args.no_measure)
+                 not args.no_measure, args.only_chosen)
     except StageError as e:
         print(st.s.red(f"\n  stopped: {e}"), file=sys.stderr)
         return 1
