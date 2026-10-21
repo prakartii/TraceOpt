@@ -1,11 +1,13 @@
 //! Phase 0 host: runs a guest in the RISC Zero executor (or prover) and prints
 //! one JSON object with the measurements RISC Zero exposes.
 //!
-//! Usage: host <execute|prove> <probe|kernel> [n]
+//! Usage: host <execute|prove> <probe|kernel> [word ...]
 //!
-//! - `probe`:  Rust-only guest; journal is the u32 result.
-//! - `kernel`: Rust guest calling a C kernel via FFI; journal is
-//!             (u32 result, u64 cycles spent inside the kernel).
+//! - `probe`:  Rust-only guest; input is one u32 n (the first word); journal
+//!             is the u32 result.
+//! - `kernel`: Rust guest calling a C kernel via FFI; input is the kernel's
+//!             arguments as u32 words, at most 16 (traceopt/signature.py); journal is
+//!             (u64 result bits, u64 cycles spent inside the kernel).
 //!
 //! `TRACEOPT_SEGMENT_PO2=<k>` caps segments at 2^k cycles. Smaller segments
 //! lower prover memory but add per-segment paging, so keep it fixed when
@@ -25,6 +27,9 @@ use risc0_zkvm::{
 };
 use serde_json::{json, Value};
 
+/// Input words the kernel guest reads (its `WORDS`).
+const KERNEL_WORDS: usize = 16;
+
 fn decode_output(guest: &str, journal: &Journal) -> Result<Value> {
     Ok(match guest {
         "probe" => {
@@ -32,7 +37,7 @@ fn decode_output(guest: &str, journal: &Journal) -> Result<Value> {
             json!({ "output": output })
         }
         _ => {
-            let (output, kernel_cycles): (u32, u64) = journal.decode()?;
+            let (output, kernel_cycles): (u64, u64) = journal.decode()?;
             json!({ "output": output, "kernel_cycles": kernel_cycles })
         }
     })
@@ -52,10 +57,17 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mode = args.get(1).map(String::as_str).unwrap_or("execute");
     let guest = args.get(2).map(String::as_str).unwrap_or("probe");
-    let n: u32 = match args.get(3) {
-        Some(s) => s.parse().context("n must be a u32")?,
-        None => 1000,
-    };
+    let mut words: Vec<u32> = args[3.min(args.len())..]
+        .iter()
+        .map(|s| s.parse().context("inputs must be u32 words"))
+        .collect::<Result<_>>()?;
+    if words.is_empty() {
+        words.push(1000); // a kernel without parameters ignores it
+    }
+    if words.len() > KERNEL_WORDS {
+        bail!("at most {KERNEL_WORDS} input words");
+    }
+    let n = words[0];
     let kernel_path = std::env::var("TRACEOPT_KERNEL_ELF").ok();
     let loaded: Vec<u8>;
     let (elf, id): (&[u8], Digest) = match guest {
@@ -77,7 +89,13 @@ fn main() -> Result<()> {
     };
 
     let mut builder = ExecutorEnv::builder();
-    builder.write(&n)?;
+    if guest == "probe" {
+        builder.write(&n)?;
+    } else {
+        let mut padded = [0u32; KERNEL_WORDS];
+        padded[..words.len()].copy_from_slice(&words);
+        builder.write_slice(&padded);
+    }
     if let Some(po2) = segment_po2 {
         builder.segment_limit_po2(po2);
     }
@@ -87,6 +105,7 @@ fn main() -> Result<()> {
         "mode": mode,
         "guest": guest,
         "n": n,
+        "words": words,
         "segment_limit_po2": segment_po2,
         "kernel_elf": if guest == "kernel" { kernel_path.clone() } else { None },
     });

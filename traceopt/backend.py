@@ -21,8 +21,14 @@ KERNEL_BIN = KERNEL_ELF.with_suffix(".bin")
 
 
 def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = False,
-          quiet: bool = False) -> None:
+          quiet: bool = False, entry: Path | None = None) -> None:
     """Build the kernel guest from C source (GCC route) or a RISC-V object.
+
+    `entry` is the object of the entry function that calls the kernel
+    (toolchain.entry_object). With `obj` and no `entry`, the entry for
+    `uint32_t traceopt_kernel(uint32_t n)` is generated next to `obj` the
+    same way, so every measured object is called through llc-compiled code;
+    the GCC route uses default_entry.c.
 
     With guest_only, only the guests are rebuilt; run the result with
     execute(..., kernel_elf=KERNEL_BIN). The host must have been built once
@@ -31,10 +37,17 @@ def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = F
     """
     if (src is None) == (obj is None):
         raise ValueError("give exactly one of src and obj")
+    if obj is not None and entry is None:
+        from traceopt import signature, toolchain
+        entry = toolchain.entry_object(signature.DEFAULT.entry_ir(signature.DEFAULT_TARGET),
+                                       Path(obj).with_name("traceopt_entry.o"))
     env = dict(os.environ)
     env.pop("TRACEOPT_KERNEL_SRC", None)
     env.pop("TRACEOPT_KERNEL_OBJ", None)
     env.pop("TRACEOPT_GUEST_ONLY", None)
+    env.pop("TRACEOPT_ENTRY_OBJ", None)
+    if entry is not None:
+        env["TRACEOPT_ENTRY_OBJ"] = str(entry)
     if guest_only:
         env["TRACEOPT_GUEST_ONLY"] = "1"
     if src is not None:
@@ -46,10 +59,13 @@ def build(src: Path | None = None, obj: Path | None = None, guest_only: bool = F
                    stderr=subprocess.PIPE if quiet else None, text=True)
 
 
-def execute(n: int, segment_po2: int | None = None, kernel_elf: Path | None = None) -> dict:
+def execute(n: int | list[int], segment_po2: int | None = None,
+            kernel_elf: Path | None = None) -> dict:
     """Run the kernel guest in the executor and return the host's JSON report.
 
-    `kernel_elf` runs that program binary instead of the embedded guest.
+    `n` is the kernel's input, or its arguments as 32-bit words
+    (Signature.words). `kernel_elf` runs that program binary instead of the
+    embedded guest.
     """
     env = dict(os.environ)
     env.pop("TRACEOPT_SEGMENT_PO2", None)
@@ -58,7 +74,8 @@ def execute(n: int, segment_po2: int | None = None, kernel_elf: Path | None = No
         env["TRACEOPT_SEGMENT_PO2"] = str(segment_po2)
     if kernel_elf is not None:
         env["TRACEOPT_KERNEL_ELF"] = str(kernel_elf)
-    out = subprocess.run([str(HOST), "execute", "kernel", str(n)], env=env,
+    words = [n] if isinstance(n, int) else list(n)
+    out = subprocess.run([str(HOST), "execute", "kernel", *map(str, words)], env=env,
                          capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
