@@ -55,6 +55,13 @@ def emit_base_ir(src: Path, out: Path) -> Path:
     return out
 
 
+def emit_unoptimized_ir(src: Path, out: Path) -> Path:
+    """IR at -O0, where every call in the source is still a call (nothing is
+    inlined); used to find the function nothing else calls."""
+    _run(["clang", *TARGET, "-O0", "-S", "-emit-llvm", str(src), "-o", str(out)])
+    return out
+
+
 def unroll(base: Path, factor: int, out: Path) -> Path:
     """Unroll every loop by `factor` (with a remainder loop); 1 copies base."""
     if factor < 1:
@@ -83,6 +90,19 @@ def codegen(ll: Path, out: Path) -> Path:
     """RISC-V object for the guest (TRACEOPT_KERNEL_OBJ)."""
     _run(["llc", *LLC_FLAGS, "-filetype=obj", str(ll), "-o", str(out)])
     return out
+
+
+def entry_object(entry_ir: str, out: Path) -> Path:
+    """RISC-V object of the guest's entry function (Signature.entry_ir)."""
+    ll = out.with_suffix(".ll")
+    ll.write_text(entry_ir, newline="\n")
+    return codegen(ll, out)
+
+
+def target_lines(ll: Path) -> str:
+    """The `target datalayout` and `target triple` lines of an IR file."""
+    return "\n".join(line for line in ll.read_text().splitlines()
+                     if line.startswith("target "))
 
 
 def assembly(ll: Path) -> str:
