@@ -43,8 +43,13 @@ def _innermost(loops: list[Loop]) -> dict[str, Loop | None]:
     return owner
 
 
-def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[str, float]:
-    """Estimated executions of each reachable block for one call."""
+def block_frequencies(fn: Function, args: dict[str, int] | None = None,
+                      trip_counts: dict[str, int | None] | None = None) -> dict[str, float]:
+    """Estimated executions of each reachable block for one call.
+
+    `trip_counts` (loop header -> trips per entry) replaces the trip-count
+    analysis, for IR whose loop counters it cannot read (traceopt/machine.py).
+    """
     loops = find_loops(fn)
     by_header = {loop.header: loop for loop in loops}
     trips: dict[str, int] = {}
@@ -52,7 +57,8 @@ def block_frequencies(fn: Function, args: dict[str, int] | None = None) -> dict[
 
     def trips_of(header: str) -> int:
         if header not in trips:
-            t = trip_count(fn, by_header[header], args)
+            t = (trip_counts[header] if trip_counts is not None
+                 else trip_count(fn, by_header[header], args))
             if t is None:
                 raise UnknownTripCount(f"trip count of loop at {header!r} is unknown")
             trips[header] = t
