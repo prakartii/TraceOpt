@@ -15,7 +15,9 @@
 //!
 //! `prove` also reports `seal_bytes`, the size of the proof itself (the
 //! receipt's seals, without the journal), and `peak_memory_kib`, the host's
-//! peak resident memory.
+//! peak resident memory. `TRACEOPT_RECEIPT=succinct` compresses the
+//! per-segment proofs into one constant-size proof (default: `composite`,
+//! one proof per segment).
 //!
 //! `TRACEOPT_KERNEL_ELF=<path>` runs the kernel guest from that program
 //! binary (the `kernel.bin` risc0-build writes) instead of the one embedded
@@ -27,7 +29,7 @@ use anyhow::{bail, Context, Result};
 use methods::{KERNEL_ELF, KERNEL_ID, PROBE_ELF, PROBE_ID};
 use risc0_zkvm::{
     compute_image_id, default_prover, sha::Digest, ExecutorEnv, ExecutorImpl, Journal,
-    SessionStats,
+    ProverOpts, SessionStats,
 };
 use serde_json::{json, Value};
 
@@ -99,6 +101,9 @@ fn main() -> Result<()> {
         Err(_) => None,
     };
 
+    let receipt_kind =
+        std::env::var("TRACEOPT_RECEIPT").unwrap_or_else(|_| "composite".to_string());
+
     let mut builder = ExecutorEnv::builder();
     if guest == "probe" {
         builder.write(&n)?;
@@ -131,13 +136,19 @@ fn main() -> Result<()> {
         }
         "prove" => {
             let start = Instant::now();
-            let info = default_prover().prove(env, elf)?;
+            let opts = match receipt_kind.as_str() {
+                "composite" => ProverOpts::composite(),
+                "succinct" => ProverOpts::succinct(),
+                other => bail!("unknown TRACEOPT_RECEIPT {other:?}; expected composite or succinct"),
+            };
+            let info = default_prover().prove_with_opts(env, elf, &opts)?;
             report["prove_seconds"] = json!(start.elapsed().as_secs_f64());
             info.receipt.verify(id)?;
             report["seal_bytes"] = json!(info.receipt.seal_size());
             report["peak_memory_kib"] = json!(peak_memory_kib());
             report["result"] = decode_output(guest, &info.receipt.journal)?;
             report["stats"] = stats_json(&info.stats);
+            report["receipt"] = json!(receipt_kind);
             report["dev_mode"] = json!(std::env::var("RISC0_DEV_MODE").unwrap_or_default());
         }
         other => bail!("unknown mode {other:?}; expected execute or prove"),
