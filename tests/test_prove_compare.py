@@ -38,6 +38,19 @@ class SummarizeTest(unittest.TestCase):
                          (200_000, 131072, 1, 42))
 
 
+class ComparisonTableTest(unittest.TestCase):
+    def test_columns_and_changes_against_the_first_version(self):
+        rows = {"unroll1": prove_compare.summarize("unroll1", [report(10.0, total=262144)]),
+                "unroll4": prove_compare.summarize("unroll4", [report(6.0, total=131072)])}
+        rows["unroll1"]["correct"], rows["unroll4"]["correct"] = True, False
+        text = prove_compare.comparison_table(rows, ["unroll1", "unroll4"], 1, "composite")
+        self.assertIn("unrolled 4x", text)
+        self.assertIn("131,072 (-50.0%)", text)
+        self.assertIn("6.00 s (-40.0%)", text)
+        self.assertIn("Proof size (composite)", text)
+        self.assertIn("NO", text)
+
+
 class FitsTest(unittest.TestCase):
     def test_segment_limit(self):
         self.assertTrue(prove_compare.fits({"total_cycles": 262144, "segments": 1}, 18))

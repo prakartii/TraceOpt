@@ -60,6 +60,29 @@ def summarize(name: str, runs: list[dict]) -> dict:
             "output": first["result"]["output"]}
 
 
+METRICS = [   # (row label, field, how to show it)
+    ("Proved size (cycles)", "total_cycles", fmt),
+    ("Segments", "segments", str),
+    ("Proving time (median of {repeat})", "median_prove_seconds", lambda v: f"{v:.2f} s"),
+    ("Peak memory", "peak_memory_kib", lambda v: f"{v / 1024:,.0f} MiB"),
+    ("Proof size ({receipt})", "seal_bytes", lambda v: f"{fmt(v)} B"),
+]
+
+
+def comparison_table(rows: dict[str, dict], names: list[str], repeat: int,
+                     receipt: str) -> str:
+    """One column per version; each value after the first with its change."""
+    base = rows[names[0]]
+    body = []
+    for label, field, show in METRICS:
+        cells = [show(rows[n][field]) if n == names[0] else
+                 f"{show(rows[n][field])} ({change(base[field], rows[n][field])})"
+                 for n in names]
+        body.append([label.format(repeat=repeat, receipt=receipt), *cells])
+    body.append(["Answer correct", *("yes" if rows[n]["correct"] else "NO" for n in names)])
+    return table(["", *(factor_label(n) for n in names)], body, align="l" + "r" * len(names))
+
+
 @dataclass
 class Program:
     label: str
@@ -169,24 +192,8 @@ def main() -> int:
     for r in rows.values():
         r["output"] = sig.result(r["output"])
         r["correct"] = r["output"] == expected
-    base, chosen = rows["unroll1"], rows[selected]
     print()
-    print(table(["", "Original", factor_label(selected), "Change"], [
-        ["Proved size (cycles)", fmt(base["total_cycles"]), fmt(chosen["total_cycles"]),
-         change(base["total_cycles"], chosen["total_cycles"])],
-        ["Segments", str(base["segments"]), str(chosen["segments"]),
-         change(base["segments"], chosen["segments"])],
-        [f"Proving time (median of {args.repeat})", f"{base['median_prove_seconds']:.2f} s",
-         f"{chosen['median_prove_seconds']:.2f} s",
-         change(base["median_prove_seconds"], chosen["median_prove_seconds"])],
-        ["Peak memory", f"{base['peak_memory_kib'] / 1024:,.0f} MiB",
-         f"{chosen['peak_memory_kib'] / 1024:,.0f} MiB",
-         change(base["peak_memory_kib"], chosen["peak_memory_kib"])],
-        [f"Proof size ({args.receipt})", f"{fmt(base['seal_bytes'])} B",
-         f"{fmt(chosen['seal_bytes'])} B", change(base["seal_bytes"], chosen["seal_bytes"])],
-        ["Answer correct", "yes" if base["correct"] else "NO",
-         "yes" if chosen["correct"] else "NO", ""],
-    ], align="lrrr"))
+    print(comparison_table(rows, names, args.repeat, args.receipt))
 
     args.out.mkdir(parents=True, exist_ok=True)
     suffix = "" if args.receipt == "composite" else f"-{args.receipt}"
@@ -201,7 +208,7 @@ def main() -> int:
         "versions": rows, "toolchain": backend.toolchain_versions(),
     }, indent=1) + "\n")
     print(f"\nwritten to {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
-    return 0 if base["correct"] and chosen["correct"] else 1
+    return 0 if all(r["correct"] for r in rows.values()) else 1
 
 
 if __name__ == "__main__":
