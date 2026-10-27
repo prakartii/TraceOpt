@@ -61,6 +61,14 @@ class RenderTest(unittest.TestCase):
         self.assertIn("NOT all", page)
 
 
+class ChangeTest(unittest.TestCase):
+    def test_rounded_signed_and_never_minus_zero(self):
+        self.assertEqual(proving_report.change(41.48, 20.34), "-51%")
+        self.assertEqual(proving_report.change(10.36, 12.11), "+17%")
+        self.assertEqual(proving_report.change(41.48, 41.46), "0%")
+        self.assertEqual(proving_report.change(0, 5), "")
+
+
 class SpanTest(unittest.TestCase):
     def test_range_or_single_value(self):
         self.assertEqual(proving_report.span([0.39, 0.72]), "39%–72%")

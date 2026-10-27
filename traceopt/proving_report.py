@@ -47,7 +47,10 @@ def _bar_class(name: str, report: dict) -> str:
 
 
 def change(before: float, after: float) -> str:
-    return f"{(after - before) / before * 100:+.0f}%" if before else ""
+    if not before:
+        return ""
+    pct = round((after - before) / before * 100)
+    return f"{pct:+d}%" if pct else "0%"   # never "-0%"
 
 
 def bars_svg(report: dict, metric: str, width: int = 380) -> str:
