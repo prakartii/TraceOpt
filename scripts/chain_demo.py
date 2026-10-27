@@ -117,7 +117,7 @@ def main() -> int:
     selected = prog.result.decision.selected
     names = list(dict.fromkeys(["unroll1", selected]))
     shown = prog.sig.show(prog.expected)
-    st.say(table(["", "This run"], [
+    print(table(["", "This run"], [
         ["Program", f"{args.program}: {prog.sig.function}"],
         ["Inputs", ", ".join(f"{p} = {v:,}" for p, v in zip(prog.sig.names, prog.values))
          or "none"],
@@ -143,7 +143,7 @@ def main() -> int:
         print(s.dim(f"      proving {factor_label(name)}..."), end="", flush=True)
         proved[name] = backend.prove(words, kernel_elf=elfs[name], receipt_out=receipts[name])
         print(s.dim(f" {proved[name]['prove_seconds']:.1f} s"), flush=True)
-    st.say(table(["Version", "Proved size", "Proving time", "Peak memory", "Receipt file"], [
+    print(table(["Version", "Proved size", "Proving time", "Peak memory", "Receipt file"], [
         [factor_label(n), fmt(proved[n]["stats"]["total_cycles"]),
          f"{proved[n]['prove_seconds']:.1f} s", f"{proved[n]['peak_memory_kib'] / 1024:,.0f} MiB",
          f"{fmt(proved[n]['receipt_file_bytes'])} bytes"] for n in names], align="lrrrr"))
@@ -154,7 +154,7 @@ def main() -> int:
     st.say("The image ID is a fingerprint of the program's machine code: the chain keeps it\n"
            "to know which program a receipt must be for. The answer travels inside the\n"
            "receipt (its journal), protected by the proof.")
-    st.say(table(["Version", "Image ID (program fingerprint)", "Receipt", "Claimed answer"], [
+    print(table(["Version", "Image ID (program fingerprint)", "Receipt", "Claimed answer"], [
         [factor_label(n), proved[n]["image_id"][:16] + "…",
          f"{fmt(proved[n]['receipt_file_bytes'])} bytes",
          prog.sig.show(prog.sig.result(proved[n]["result"]["output"]))] for n in names],
@@ -174,7 +174,7 @@ def main() -> int:
                      f"{v['verify_seconds'] * 1000:.0f} ms",
                      prog.sig.show(answer) if answer is not None else "–",
                      s.green("✔ yes") if ok else s.red("✘ NO")])
-    st.say(table(["Version", "Proof", "Verify time", "Answer from receipt", "Matches expected?"],
+    print(table(["Version", "Proof", "Verify time", "Answer from receipt", "Matches expected?"],
                  rows, align="llrrl"))
     st.done()
 
@@ -193,14 +193,14 @@ def main() -> int:
                     backend.verify(receipts[chosen], "0" * 64)))
     rejected = all(not r["valid"] for _, r in attacks)
     all_ok &= rejected
-    st.say(table(["Attempt", "Chain says", "Reason"], [
+    print(table(["Attempt", "Chain says", "Reason"], [
         [what, s.green("✔ rejected") if not r["valid"] else s.red("✘ ACCEPTED"),
          (r.get("error") or "")[:48]] for what, r in attacks], align="lll"))
     st.done()
 
     # 6. Bill -------------------------------------------------------------------
     st.begin(6, "The bill: proving is the expensive part, and TraceOpt cuts it")
-    st.say(table(["Version", "Proved size", "Proving time", "Verify time", "Proved size vs\n"
+    print(table(["Version", "Proved size", "Proving time", "Verify time", "Proved size vs\n"
                   "original", "Proving time vs\noriginal"],
                  bill_rows(proved, checked, names), align="lrrrrr"))
     if len(names) > 1:
