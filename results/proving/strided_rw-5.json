@@ -1,0 +1,55 @@
+{
+ "description": "real RISC Zero proofs of the original and TraceOpt's choice (scripts/prove_compare.py)",
+ "created": "2026-10-27T14:17:51+00:00",
+ "program": "strided_rw",
+ "inputs": [
+  5
+ ],
+ "function": "traceopt_kernel",
+ "expected": 3528213632,
+ "selected": "unroll4",
+ "receipt": "composite",
+ "repeat": 3,
+ "margin_percent": 10.0,
+ "versions": {
+  "unroll1": {
+   "version": "unroll1",
+   "prove_seconds": [
+    35.819953969,
+    50.993032531,
+    62.878710514
+   ],
+   "median_prove_seconds": 50.993032531,
+   "peak_memory_kib": 2403612,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 73435,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  },
+  "unroll4": {
+   "version": "unroll4",
+   "prove_seconds": [
+    22.463051537,
+    30.915728664,
+    33.969667389
+   ],
+   "median_prove_seconds": 30.915728664,
+   "peak_memory_kib": 1214820,
+   "seal_bytes": 243944,
+   "total_cycles": 131072,
+   "user_cycles": 48286,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  }
+ },
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
