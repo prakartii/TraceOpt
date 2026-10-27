@@ -205,10 +205,12 @@ def main() -> int:
                  bill_rows(proved, checked, names), align="lrrrrr"))
     if len(names) > 1:
         base, mine = proved[names[0]], proved[chosen]
-        st.say(s.bold(f"A prover paid per proved cycle bills "
-                      f"{percent(base['stats']['total_cycles'], mine['stats']['total_cycles'])}"
-                      f"; proving took {percent(base['prove_seconds'], mine['prove_seconds'])}"
-                      " time. The chain's verify cost does not change."))
+        cv, mv = checked[names[0]], checked[chosen]
+        st.say(s.bold(f"Prover's bill with TraceOpt: proved size "
+                      f"{percent(base['stats']['total_cycles'], mine['stats']['total_cycles'])},"
+                      f" proving time {percent(base['prove_seconds'], mine['prove_seconds'])}."))
+        st.say(f"The chain's side stays small either way: verifying took "
+               f"{cv['verify_seconds'] * 1000:.0f} ms and {mv['verify_seconds'] * 1000:.0f} ms.")
     else:
         st.say("TraceOpt kept the original, so the bill is unchanged.")
     st.done()
