@@ -126,9 +126,11 @@ Other inputs, one per kind of case (all checked end to end; files are in
   for the memory-heavy `strided_rw`). The decision rule only accepts wins
   that survive a 10% error, which is why it missed 3 wins and took no false
   ones.
-- **Why not real proving time?** Proving the larger runs did not fit in the
-  development machine's memory. Proving work follows the padded cycle count,
-  which the executor reports exactly.
+- **Did you measure real proving time?** Yes, for runs with segments of up
+  to 2^18 cycles (`scripts/prove_compare.sh`, results in
+  `results/proving/`). Larger segments did not fit in the development
+  machine's memory; for those, the padded cycle count the executor reports
+  is the measure, and the small runs show proving time and memory follow it.
 - **Can you optimize the proof itself, not just the cycle count?** The
   final on-chain proof (Groth16) has the same size for every program, so no
   compiler can shrink it. What TraceOpt changes is the work to generate the
