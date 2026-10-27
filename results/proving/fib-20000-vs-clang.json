@@ -1,0 +1,88 @@
+{
+ "description": "real RISC Zero proofs of the original and TraceOpt's choice (scripts/prove_compare.py)",
+ "created": "2026-10-27T16:16:45+00:00",
+ "program": "demos/fib.c",
+ "inputs": [
+  20000
+ ],
+ "function": "fib",
+ "expected": 936372485,
+ "selected": "unroll8",
+ "receipt": "composite",
+ "repeat": 3,
+ "margin_percent": 10.0,
+ "segment_po2": null,
+ "versions": {
+  "unroll1": {
+   "version": "unroll1",
+   "prove_seconds": [
+    63.792305695,
+    73.226358937,
+    60.238496582
+   ],
+   "median_prove_seconds": 63.792305695,
+   "peak_memory_kib": 2405592,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124354,
+   "segments": 1,
+   "output": 936372485,
+   "correct": true
+  },
+  "unroll8": {
+   "version": "unroll8",
+   "prove_seconds": [
+    18.442434075,
+    15.037974407,
+    14.35485054
+   ],
+   "median_prove_seconds": 15.037974407,
+   "peak_memory_kib": 612352,
+   "seal_bytes": 220904,
+   "total_cycles": 65536,
+   "user_cycles": 29362,
+   "segments": 1,
+   "output": 936372485,
+   "correct": true
+  },
+  "clang-O2": {
+   "version": "clang-O2",
+   "prove_seconds": [
+    68.063186605,
+    64.196864202,
+    64.264409598
+   ],
+   "median_prove_seconds": 64.264409598,
+   "peak_memory_kib": 2405436,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124354,
+   "segments": 1,
+   "output": 936372485,
+   "correct": true
+  },
+  "clang-O3": {
+   "version": "clang-O3",
+   "prove_seconds": [
+    88.982659122,
+    68.690943406,
+    66.009499569
+   ],
+   "median_prove_seconds": 68.690943406,
+   "peak_memory_kib": 2405196,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124354,
+   "segments": 1,
+   "output": 936372485,
+   "correct": true
+  }
+ },
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
