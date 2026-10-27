@@ -136,7 +136,9 @@ Other inputs, one per kind of case (all checked end to end; files are in
   compiler can shrink it. What TraceOpt changes is the work to generate the
   proof: `scripts/prove_compare.sh` runs the real prover, and on
   `demos/fib.c 20000` proving took 72% less time and 75% less memory, and
-  the per-segment proof was 13.6% smaller (`results/proving/`).
+  the per-segment proof was 13.6% smaller (`results/proving/`). Compressed
+  into one succinct proof, both versions gave exactly 222,668 bytes, but
+  the unrolled one was still proved 58% faster.
 - **Is the unrolled code proven equivalent?** No. It is LLVM's own
   transformation, checked by running it on test inputs in the interpreter
   and in the zkVM.
