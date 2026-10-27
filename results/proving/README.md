@@ -15,13 +15,22 @@ segment):
 | `demos/array_sum.c 12000` | 8x | 262,144 → 131,072 (−50%) | 58.4 s → 28.6 s (−51.1%) | 2,349 → 1,182 MiB (−49.7%) | 255,656 → 243,944 B (−4.6%) |
 | `demos/counter.c 1000 3` | 8x | 65,536 → 32,768 (−50%) | 12.9 s → 7.2 s (−44.5%) | 597 → 304 MiB (−49.0%) | 220,904 → 209,256 B (−5.3%) |
 
+Succinct receipt (the segment proofs compressed into one proof, the step
+before the Groth16 proof that is verified on-chain):
+
+| Program and inputs | Chosen | Proved size | Proving time (median) | Peak memory | Proof size |
+|---|---|---|---|---|---|
+| `demos/fib.c 20000` | 8x | 262,144 → 65,536 (−75%) | 67.7 s → 28.3 s (−58.2%) | 2,349 → 1,419 MiB (−39.6%) | 222,668 → 222,668 B (0%) |
+
 What this shows:
 
 - Proving time and memory follow the proved (padded) size, which is what
   TraceOpt predicts: halving the size roughly halved memory and cut time by
   39–51%; quartering it cut both by about three quarters.
-- The proof itself gets slightly smaller, because a STARK proof grows with
-  the logarithm of the trace length.
+- The per-segment proofs get slightly smaller, because a STARK proof grows
+  with the logarithm of the trace length. A compressed (succinct) proof has
+  the same size for both versions: no program change can shrink it, but it
+  still takes less time to generate.
 - Proving times vary between runs by up to about 75% on this laptop (e.g.
   35.8 s to 62.9 s for the same proof; the individual times are in each
   file), which is why the two versions alternate. In every pair, the chosen
