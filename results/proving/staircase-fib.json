@@ -1,0 +1,522 @@
+{
+ "description": "one program proved at many inputs (scripts/prove_staircase.py)",
+ "created": "2026-10-27T15:22:25+00:00",
+ "program": "demos/fib.c",
+ "function": "fib",
+ "receipt": "composite",
+ "repeat": 2,
+ "max_po2": 18,
+ "points": [
+  {
+   "n": 100,
+   "version": "unroll1",
+   "user_cycles": 4954,
+   "paging_cycles": 17578,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 3314859971,
+   "prove_seconds": [
+    3.711295799,
+    3.7146960289999997
+   ],
+   "median_prove_seconds": 3.712995914,
+   "peak_memory_kib": 310716,
+   "seal_bytes": 209256,
+   "output": 3314859971,
+   "correct": true
+  },
+  {
+   "n": 100,
+   "version": "unroll8",
+   "user_cycles": 4508,
+   "paging_cycles": 17565,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 3314859971,
+   "prove_seconds": [
+    4.368336809,
+    4.221991427
+   ],
+   "median_prove_seconds": 4.295164118,
+   "peak_memory_kib": 311196,
+   "seal_bytes": 209256,
+   "output": 3314859971,
+   "correct": true
+  },
+  {
+   "n": 1000,
+   "version": "unroll1",
+   "user_cycles": 10354,
+   "paging_cycles": 17578,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 1556111435,
+   "prove_seconds": [
+    4.445134583,
+    4.278742164
+   ],
+   "median_prove_seconds": 4.361938373499999,
+   "peak_memory_kib": 311512,
+   "seal_bytes": 209256,
+   "output": 1556111435,
+   "correct": true
+  },
+  {
+   "n": 1000,
+   "version": "unroll8",
+   "user_cycles": 5612,
+   "paging_cycles": 17565,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 1556111435,
+   "prove_seconds": [
+    4.280569783,
+    4.432973457
+   ],
+   "median_prove_seconds": 4.35677162,
+   "peak_memory_kib": 311516,
+   "seal_bytes": 209256,
+   "output": 1556111435,
+   "correct": true
+  },
+  {
+   "n": 1500,
+   "version": "unroll1",
+   "user_cycles": 13354,
+   "paging_cycles": 17578,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1711437392,
+   "prove_seconds": [
+    9.227816761,
+    9.281503036
+   ],
+   "median_prove_seconds": 9.2546598985,
+   "peak_memory_kib": 611220,
+   "seal_bytes": 220904,
+   "output": 1711437392,
+   "correct": true
+  },
+  {
+   "n": 1500,
+   "version": "unroll8",
+   "user_cycles": 6258,
+   "paging_cycles": 17565,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 1711437392,
+   "prove_seconds": [
+    5.155814028,
+    5.233157474
+   ],
+   "median_prove_seconds": 5.194485751,
+   "peak_memory_kib": 311224,
+   "seal_bytes": 209256,
+   "output": 1711437392,
+   "correct": true
+  },
+  {
+   "n": 2000,
+   "version": "unroll1",
+   "user_cycles": 16354,
+   "paging_cycles": 17578,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1392522469,
+   "prove_seconds": [
+    10.778352348,
+    11.349713982
+   ],
+   "median_prove_seconds": 11.064033165000001,
+   "peak_memory_kib": 611676,
+   "seal_bytes": 220904,
+   "output": 1392522469,
+   "correct": true
+  },
+  {
+   "n": 2000,
+   "version": "unroll8",
+   "user_cycles": 6862,
+   "paging_cycles": 17565,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 1392522469,
+   "prove_seconds": [
+    5.910145106,
+    5.7214244260000005
+   ],
+   "median_prove_seconds": 5.815784766,
+   "peak_memory_kib": 311836,
+   "seal_bytes": 209256,
+   "output": 1392522469,
+   "correct": true
+  },
+  {
+   "n": 4000,
+   "version": "unroll1",
+   "user_cycles": 28354,
+   "paging_cycles": 17578,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1489622139,
+   "prove_seconds": [
+    10.473572415,
+    12.000948896
+   ],
+   "median_prove_seconds": 11.2372606555,
+   "peak_memory_kib": 611996,
+   "seal_bytes": 220904,
+   "output": 1489622139,
+   "correct": true
+  },
+  {
+   "n": 4000,
+   "version": "unroll8",
+   "user_cycles": 9362,
+   "paging_cycles": 17565,
+   "total_cycles": 32768,
+   "segments": 1,
+   "expected": 1489622139,
+   "prove_seconds": [
+    6.646894487,
+    5.548486401
+   ],
+   "median_prove_seconds": 6.0976904439999995,
+   "peak_memory_kib": 311512,
+   "seal_bytes": 209256,
+   "output": 1489622139,
+   "correct": true
+  },
+  {
+   "n": 6000,
+   "version": "unroll1",
+   "user_cycles": 40354,
+   "paging_cycles": 17578,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 3152675136,
+   "prove_seconds": [
+    11.129429624,
+    11.679877482
+   ],
+   "median_prove_seconds": 11.404653553,
+   "peak_memory_kib": 613272,
+   "seal_bytes": 220904,
+   "output": 3152675136,
+   "correct": true
+  },
+  {
+   "n": 6000,
+   "version": "unroll8",
+   "user_cycles": 11862,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 3152675136,
+   "prove_seconds": [
+    12.153199722,
+    12.891355771
+   ],
+   "median_prove_seconds": 12.5222777465,
+   "peak_memory_kib": 610716,
+   "seal_bytes": 220904,
+   "output": 3152675136,
+   "correct": true
+  },
+  {
+   "n": 7000,
+   "version": "unroll1",
+   "user_cycles": 46354,
+   "paging_cycles": 17578,
+   "total_cycles": 131072,
+   "segments": 1,
+   "expected": 2495322027,
+   "prove_seconds": [
+    26.534704165,
+    25.809775398
+   ],
+   "median_prove_seconds": 26.1722397815,
+   "peak_memory_kib": 1207672,
+   "seal_bytes": 243944,
+   "output": 2495322027,
+   "correct": true
+  },
+  {
+   "n": 7000,
+   "version": "unroll8",
+   "user_cycles": 13112,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 2495322027,
+   "prove_seconds": [
+    11.613232460999999,
+    11.467346456
+   ],
+   "median_prove_seconds": 11.540289458499998,
+   "peak_memory_kib": 611676,
+   "seal_bytes": 220904,
+   "output": 2495322027,
+   "correct": true
+  },
+  {
+   "n": 8000,
+   "version": "unroll1",
+   "user_cycles": 52354,
+   "paging_cycles": 17578,
+   "total_cycles": 131072,
+   "segments": 1,
+   "expected": 4196762181,
+   "prove_seconds": [
+    21.405646078,
+    24.356754383
+   ],
+   "median_prove_seconds": 22.8812002305,
+   "peak_memory_kib": 1207836,
+   "seal_bytes": 243944,
+   "output": 4196762181,
+   "correct": true
+  },
+  {
+   "n": 8000,
+   "version": "unroll8",
+   "user_cycles": 14362,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 4196762181,
+   "prove_seconds": [
+    12.986477417,
+    11.840044939
+   ],
+   "median_prove_seconds": 12.413261177999999,
+   "peak_memory_kib": 611544,
+   "seal_bytes": 220904,
+   "output": 4196762181,
+   "correct": true
+  },
+  {
+   "n": 12000,
+   "version": "unroll1",
+   "user_cycles": 76354,
+   "paging_cycles": 17578,
+   "total_cycles": 131072,
+   "segments": 1,
+   "expected": 1699021440,
+   "prove_seconds": [
+    24.217023146,
+    23.789646932
+   ],
+   "median_prove_seconds": 24.003335039,
+   "peak_memory_kib": 1209460,
+   "seal_bytes": 243944,
+   "output": 1699021440,
+   "correct": true
+  },
+  {
+   "n": 12000,
+   "version": "unroll8",
+   "user_cycles": 19362,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1699021440,
+   "prove_seconds": [
+    11.293376229,
+    11.201672361
+   ],
+   "median_prove_seconds": 11.247524295,
+   "peak_memory_kib": 611512,
+   "seal_bytes": 220904,
+   "output": 1699021440,
+   "correct": true
+  },
+  {
+   "n": 16000,
+   "version": "unroll1",
+   "user_cycles": 100354,
+   "paging_cycles": 17578,
+   "total_cycles": 131072,
+   "segments": 1,
+   "expected": 1455037243,
+   "prove_seconds": [
+    20.082224096,
+    22.929673734
+   ],
+   "median_prove_seconds": 21.505948915,
+   "peak_memory_kib": 1211836,
+   "seal_bytes": 243944,
+   "output": 1455037243,
+   "correct": true
+  },
+  {
+   "n": 16000,
+   "version": "unroll8",
+   "user_cycles": 24362,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1455037243,
+   "prove_seconds": [
+    15.37607453,
+    14.155581357
+   ],
+   "median_prove_seconds": 14.7658279435,
+   "peak_memory_kib": 611996,
+   "seal_bytes": 220904,
+   "output": 1455037243,
+   "correct": true
+  },
+  {
+   "n": 17000,
+   "version": "unroll1",
+   "user_cycles": 106354,
+   "paging_cycles": 17578,
+   "total_cycles": 131072,
+   "segments": 1,
+   "expected": 825777621,
+   "prove_seconds": [
+    23.102321388,
+    19.94636114
+   ],
+   "median_prove_seconds": 21.524341264,
+   "peak_memory_kib": 1212636,
+   "seal_bytes": 243944,
+   "output": 825777621,
+   "correct": true
+  },
+  {
+   "n": 17000,
+   "version": "unroll8",
+   "user_cycles": 25612,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 825777621,
+   "prove_seconds": [
+    10.909623169,
+    11.529993014
+   ],
+   "median_prove_seconds": 11.2198080915,
+   "peak_memory_kib": 612152,
+   "seal_bytes": 220904,
+   "output": 825777621,
+   "correct": true
+  },
+  {
+   "n": 18000,
+   "version": "unroll1",
+   "user_cycles": 112354,
+   "paging_cycles": 17578,
+   "total_cycles": 262144,
+   "segments": 1,
+   "expected": 2642543552,
+   "prove_seconds": [
+    55.01287015,
+    53.819020467
+   ],
+   "median_prove_seconds": 54.4159453085,
+   "peak_memory_kib": 2404632,
+   "seal_bytes": 255656,
+   "output": 2642543552,
+   "correct": true
+  },
+  {
+   "n": 18000,
+   "version": "unroll8",
+   "user_cycles": 26862,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 2642543552,
+   "prove_seconds": [
+    14.065271041,
+    12.36542697
+   ],
+   "median_prove_seconds": 13.2153490055,
+   "peak_memory_kib": 611676,
+   "seal_bytes": 220904,
+   "output": 2642543552,
+   "correct": true
+  },
+  {
+   "n": 20000,
+   "version": "unroll1",
+   "user_cycles": 124354,
+   "paging_cycles": 17578,
+   "total_cycles": 262144,
+   "segments": 1,
+   "expected": 936372485,
+   "prove_seconds": [
+    46.856886372,
+    43.511835066
+   ],
+   "median_prove_seconds": 45.184360719,
+   "peak_memory_kib": 2405116,
+   "seal_bytes": 255656,
+   "output": 936372485,
+   "correct": true
+  },
+  {
+   "n": 20000,
+   "version": "unroll8",
+   "user_cycles": 29362,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 936372485,
+   "prove_seconds": [
+    9.770136352,
+    10.16214089
+   ],
+   "median_prove_seconds": 9.966138620999999,
+   "peak_memory_kib": 612632,
+   "seal_bytes": 220904,
+   "output": 936372485,
+   "correct": true
+  },
+  {
+   "n": 24000,
+   "version": "unroll1",
+   "user_cycles": 148354,
+   "paging_cycles": 17578,
+   "total_cycles": 262144,
+   "segments": 1,
+   "expected": 1846674688,
+   "prove_seconds": [
+    39.8720574,
+    38.967105329
+   ],
+   "median_prove_seconds": 39.419581364500004,
+   "peak_memory_kib": 2403996,
+   "seal_bytes": 255656,
+   "output": 1846674688,
+   "correct": true
+  },
+  {
+   "n": 24000,
+   "version": "unroll8",
+   "user_cycles": 34362,
+   "paging_cycles": 17565,
+   "total_cycles": 65536,
+   "segments": 1,
+   "expected": 1846674688,
+   "prove_seconds": [
+    10.108834224,
+    10.176237287
+   ],
+   "median_prove_seconds": 10.142535755499999,
+   "peak_memory_kib": 612796,
+   "seal_bytes": 220904,
+   "output": 1846674688,
+   "correct": true
+  }
+ ],
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
