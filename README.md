@@ -551,6 +551,7 @@ TraceOpt/
 │   ├── demo.sh             narrated demonstration (runs demo.py)
 │   ├── demo.py             the demo itself; --html writes the report
 │   ├── live.sh / live.py   live mode: any program and input, stage by stage
+│   ├── prove_compare.sh / .py  real proofs of the original and the choice
 │   ├── evaluate.py         baseline / -O2 / TraceOpt comparison
 │   ├── fit_model.py        fits the cost model, reports held-out error
 │   ├── install_llvm_user.sh  LLVM without sudo
