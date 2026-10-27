@@ -190,6 +190,12 @@ matched the baseline in the other 15. The missed wins are analyzed in
 power-of-two boundary, where the 10% safety margin declined to act, and one
 is a model failure on a memory-heavy, multi-segment run.
 
+**Real proofs** (`results/proving/`, the RISC Zero prover, 3 proofs per
+version): where TraceOpt chose an unrolled version, proving it took 39–72%
+less time and 49–75% less peak memory, and the proof was 4.6–13.6% smaller
+(4 cases with one segment of at most 2^18 cycles; table in
+[results/proving/README.md](results/proving/README.md)).
+
 These results cover four small kernels on one machine and one toolchain;
 they show the approach working, not a general speedup.
 
