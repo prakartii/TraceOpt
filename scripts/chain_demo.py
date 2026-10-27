@@ -117,7 +117,7 @@ def main() -> int:
     selected = prog.result.decision.selected
     names = list(dict.fromkeys(["unroll1", selected]))
     shown = prog.sig.show(prog.expected)
-    st.say(table(["", ""], [
+    st.say(table(["", "This run"], [
         ["Program", f"{args.program}: {prog.sig.function}"],
         ["Inputs", ", ".join(f"{p} = {v:,}" for p, v in zip(prog.sig.names, prog.values))
          or "none"],
