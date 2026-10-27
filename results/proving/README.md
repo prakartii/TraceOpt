@@ -22,7 +22,32 @@ before the Groth16 proof that is verified on-chain):
 |---|---|---|---|---|---|
 | `demos/fib.c 20000` | 8x | 262,144 → 65,536 (−75%) | 67.7 s → 28.3 s (−58.2%) | 2,349 → 1,419 MiB (−39.6%) | 222,668 → 222,668 B (0%) |
 
-What this shows:
+## The staircase
+
+`staircase-fib.json`: `demos/fib.c` proved at 14 inputs (n = 100 to
+24,000), original and unrolled 8x, 2 proofs each: 28 points, every answer
+correct. Proving cost follows the proved size, not the cycles the program
+runs:
+
+| Proved size | Runs | Program cycles in this bucket | Proving time (median; range) | Peak memory (median) |
+|---|---|---|---|---|
+| 32,768 | 7 | 4,508 – 10,354 | 4.4 s (3.7 – 6.1) | 304 MiB |
+| 65,536 | 13 | 11,862 – 40,354 | 11.2 s (9.3 – 14.8) | 597 MiB |
+| 131,072 | 5 | 46,354 – 106,354 | 22.9 s (21.5 – 26.2) | 1,181 MiB |
+| 262,144 | 3 | 112,354 – 148,354 | 45.2 s (39.4 – 54.4) | 2,348 MiB |
+
+Inside the 65,536 bucket the program ran from 11,862 to 40,354 cycles
+(3.4 times as many) and proving time stayed between 9.3 and 14.8 s; each
+step up roughly doubles time and exactly doubles memory.
+
+![Proving time against program cycles](staircase-fib-time.svg)
+
+![Prover memory against program cycles](staircase-fib-memory.svg)
+
+Redraw with `python3 scripts/plot_staircase.py
+results/proving/staircase-fib.json --highlight 18000`.
+
+## What the comparisons show
 
 - Proving time and memory follow the proved (padded) size, which is what
   TraceOpt predicts: halving the size roughly halved memory and cut time by
