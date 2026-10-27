@@ -22,6 +22,27 @@ before the Groth16 proof that is verified on-chain):
 |---|---|---|---|---|---|
 | `demos/fib.c 20000` | 8x | 262,144 → 65,536 (−75%) | 67.7 s → 28.3 s (−58.2%) | 2,349 → 1,419 MiB (−39.6%) | 222,668 → 222,668 B (0%) |
 
+## Against plain Clang
+
+The `*-vs-clang.json` files also prove the program as plain `clang -O2` and
+`-O3` build it, with LLVM's own unrolling (3 proofs per version, all answers
+correct). Median proving time, change against the original:
+
+| Program and inputs | Original | TraceOpt | clang -O2 | clang -O3 |
+|---|---|---|---|---|
+| `strided_rw 5` | 41.5 s (262,144) | 20.3 s, −51% (131,072) | 41.5 s, 0% (262,144) | 40.7 s, −2% (262,144) |
+| `demos/fib.c 20000` | 63.8 s (262,144) | 15.0 s, −76% (65,536) | 64.3 s, +1% (262,144) | 68.7 s, +8% (262,144) |
+| `demos/array_sum.c 12000` | 43.1 s (262,144) | 22.1 s, −49% (131,072) | 41.5 s, −4% (262,144) | 41.5 s, −4% (262,144) |
+| `demos/counter.c 1000 3` | 10.4 s (65,536) | 6.1 s, −41% (32,768) | 12.1 s, +17% (65,536) | 11.7 s, +13% (65,536) |
+
+(Proved size in brackets.) In all four, Clang stayed in the original's
+proved size, so its proving cost stayed the same within run-to-run noise,
+while TraceOpt's choice dropped one or two sizes. These are cases where
+TraceOpt chose to unroll; in the executor evaluation, `clang -O2` beat
+TraceOpt in 1 of 16 cases (`nested_fnv`, n = 3000: 262,144 against
+524,288). Its real-proof run (with `--segment-po2 18`) was stopped when the
+machine ran low on memory and is not included.
+
 ## The staircase
 
 `staircase-fib.json`: `demos/fib.c` proved at 14 inputs (n = 100 to
