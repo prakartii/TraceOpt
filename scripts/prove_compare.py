@@ -4,13 +4,15 @@
     scripts/prove_compare.sh strided_rw 5
     scripts/prove_compare.sh demos/fib.c 20000 --repeat 3
     scripts/prove_compare.sh demos/fib.c 20000 --receipt succinct
+    scripts/prove_compare.sh demos/fib.c 20000 --conventional O2 O3
 
 The other scripts measure proved size (padded cycles) in the executor. This
 one runs the prover and reports what proving actually costs: time, peak
 memory and the size of the proof (its seals). The original (unroll 1x) and
 the version TraceOpt chooses are proved alternately, `--repeat` times each,
 and the median time is reported. Every proof is verified, and its answer is
-compared with the native build's.
+compared with the native build's. `--conventional O2 O3` also proves the
+program as plain `clang -O2` / `-O3` builds it, the usual compiler baseline.
 
 Proving needs far more memory than executing. Runs whose segments are above
 2^--max-po2 cycles are refused (2^20 ran out of memory in 7.6 GB of WSL).
@@ -111,14 +113,27 @@ def prepare(program: str, inputs: list[str], work_root: Path, model: Path,
     return Program(label, work, base_ir, sig, values, expected, result)
 
 
+def conventional_obj(prog: Program, level: str) -> Path:
+    """The program built by Clang's normal pipeline at -O2 or -O3, with LLVM's
+    own unrolling heuristics (what a developer gets without TraceOpt)."""
+    ll = toolchain.emit_conventional_ir(prog.result.source, level, prog.work / f"{level}.ll")
+    return toolchain.codegen(ll, prog.work / f"{level}.o")
+
+
 def build_elfs(prog: Program, names: list[str]) -> dict[str, Path]:
-    """Build a guest for each version and keep a copy of each program binary."""
+    """Build a guest for each version and keep a copy of each program binary.
+
+    A name is a TraceOpt version (unroll1, unroll2, ...) or clang-O2/clang-O3.
+    """
     entry = toolchain.entry_object(prog.sig.entry_ir(toolchain.target_lines(prog.base_ir)),
                                    prog.work / "entry.o")
-    variants = {v.name: v for v in prog.result.variants}
+    objs = {v.name: v.obj for v in prog.result.variants}
+    for name in names:
+        if name.startswith("clang-"):
+            objs[name] = conventional_obj(prog, name.removeprefix("clang-"))
     elfs = {}
     for name in names:
-        backend.build(obj=variants[name].obj, entry=entry, guest_only=True, quiet=True)
+        backend.build(obj=objs[name], entry=entry, guest_only=True, quiet=True)
         elfs[name] = prog.work / f"{name}.bin"
         elfs[name].write_bytes(backend.KERNEL_BIN.read_bytes())
     return elfs
@@ -139,6 +154,9 @@ def main() -> int:
                              "compressed into one proof")
     parser.add_argument("--max-po2", type=int, default=18,
                         help="refuse to prove segments above 2^this cycles (default 18)")
+    parser.add_argument("--conventional", nargs="*", default=[], choices=("O2", "O3"),
+                        help="also prove the program built by plain clang at these "
+                             "levels, with LLVM's own unrolling (e.g. --conventional O2 O3)")
     parser.add_argument("--margin", type=float, default=10.0, help="as in live.py")
     parser.add_argument("--model", type=Path, default=ROOT / "results/model-clang21.json")
     parser.add_argument("--work", type=Path, default=Path.home() / ".cache/traceopt-prove")
@@ -163,13 +181,14 @@ def main() -> int:
 
     selected = result.decision.selected
     print(f"{label}: TraceOpt chose {factor_label(selected)}")
-    if selected == "unroll1":
+    conventional = [f"clang-{level}" for level in args.conventional]
+    if selected == "unroll1" and not conventional:
         print("The original was kept, so there is nothing to compare: both proofs would be "
-              "the same program.")
+              "the same program (add --conventional O2 to compare with Clang).")
         return 0
 
     words = sig.words(values)
-    names = ["unroll1", selected]
+    names = list(dict.fromkeys(["unroll1", selected, *conventional]))
     elfs = build_elfs(prog, names)
     for name in names:
         stats = backend.execute(words, kernel_elf=elfs[name])["stats"]
@@ -196,7 +215,8 @@ def main() -> int:
     print(comparison_table(rows, names, args.repeat, args.receipt))
 
     args.out.mkdir(parents=True, exist_ok=True)
-    suffix = "" if args.receipt == "composite" else f"-{args.receipt}"
+    suffix = ("" if args.receipt == "composite" else f"-{args.receipt}") + \
+        ("-vs-clang" if conventional else "")
     path = args.out / f"{label}{suffix}.json"
     path.write_text(json.dumps({
         "description": "real RISC Zero proofs of the original and TraceOpt's choice "

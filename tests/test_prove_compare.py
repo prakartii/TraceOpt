@@ -3,7 +3,9 @@
 import importlib.util
 import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,6 +51,31 @@ class ComparisonTableTest(unittest.TestCase):
         self.assertIn("6.00 s (-40.0%)", text)
         self.assertIn("Proof size (composite)", text)
         self.assertIn("NO", text)
+
+
+class BuildElfsTest(unittest.TestCase):
+    def test_clang_versions_are_built_by_the_normal_pipeline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            variant = mock.Mock(obj=work / "u1.o")
+            variant.name = "unroll1"
+            prog = prove_compare.Program("p-1", work, work / "base.ll", mock.Mock(), [1], 0,
+                                         mock.Mock(variants=[variant], source=work / "p.c"))
+            kernel_bin = work / "kernel.bin"
+            kernel_bin.write_bytes(b"elf")
+            with mock.patch.object(prove_compare.toolchain, "entry_object"), \
+                    mock.patch.object(prove_compare.toolchain, "target_lines"), \
+                    mock.patch.object(prove_compare.toolchain, "emit_conventional_ir",
+                                      side_effect=lambda src, level, out: out) as emit, \
+                    mock.patch.object(prove_compare.toolchain, "codegen",
+                                      side_effect=lambda ll, out: out), \
+                    mock.patch.object(prove_compare.backend, "KERNEL_BIN", kernel_bin), \
+                    mock.patch.object(prove_compare.backend, "build") as build:
+                elfs = prove_compare.build_elfs(prog, ["unroll1", "clang-O2"])
+            self.assertEqual(emit.call_args.args[1], "O2")
+            self.assertEqual([c.kwargs["obj"] for c in build.call_args_list],
+                             [work / "u1.o", work / "O2.o"])
+            self.assertEqual(elfs["clang-O2"].read_bytes(), b"elf")
 
 
 class FitsTest(unittest.TestCase):
