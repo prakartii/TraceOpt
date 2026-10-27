@@ -71,24 +71,29 @@ def execute(n: int | list[int], segment_po2: int | None = None,
 
 
 def prove(n: int | list[int], segment_po2: int | None = None,
-          kernel_elf: Path | None = None, receipt: str = "composite") -> dict:
+          kernel_elf: Path | None = None, receipt: str = "composite",
+          receipt_out: Path | None = None) -> dict:
     """Prove the kernel guest and return the host's JSON report.
 
-    Like execute(), plus prove_seconds, seal_bytes (the proof's size) and
-    peak_memory_kib. `receipt` is "composite" (one proof per segment) or
-    "succinct" (compressed into one proof). Needs far more memory than
+    Like execute(), plus prove_seconds, seal_bytes (the proof's size),
+    peak_memory_kib and image_id. `receipt` is "composite" (one proof per
+    segment) or "succinct" (compressed into one proof). With `receipt_out`,
+    the receipt is saved there for verify(). Needs far more memory than
     execute(): keep segments at 2^18 cycles or below on a small machine.
     """
     if receipt not in ("composite", "succinct"):
         raise ValueError(f"receipt must be composite or succinct, not {receipt!r}")
-    return _run_host("prove", n, segment_po2, kernel_elf, {"TRACEOPT_RECEIPT": receipt})
+    extra = {"TRACEOPT_RECEIPT": receipt}
+    if receipt_out is not None:
+        extra["TRACEOPT_RECEIPT_OUT"] = str(receipt_out)
+    return _run_host("prove", n, segment_po2, kernel_elf, extra)
 
 
 def _run_host(mode: str, n: int | list[int], segment_po2: int | None,
               kernel_elf: Path | None, extra: dict[str, str]) -> dict:
     env = dict(os.environ)
     for name in ("TRACEOPT_SEGMENT_PO2", "TRACEOPT_KERNEL_ELF", "TRACEOPT_RECEIPT",
-                 "RISC0_DEV_MODE"):
+                 "TRACEOPT_RECEIPT_OUT", "RISC0_DEV_MODE"):
         env.pop(name, None)
     if segment_po2 is not None:
         env["TRACEOPT_SEGMENT_PO2"] = str(segment_po2)

@@ -74,6 +74,15 @@ class BuildArgumentsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             backend.prove(5, receipt="groth16")
 
+    def test_prove_saves_the_receipt_only_when_asked(self):
+        result = mock.Mock(stdout='{"stats": {}}')
+        with mock.patch.dict("os.environ", {"TRACEOPT_RECEIPT_OUT": "stale.bin"}), \
+                mock.patch("subprocess.run", return_value=result) as run:
+            backend.prove(5)
+            self.assertNotIn("TRACEOPT_RECEIPT_OUT", run.call_args.kwargs["env"])
+            backend.prove(5, receipt_out=Path("r.bin"))
+            self.assertEqual(run.call_args.kwargs["env"]["TRACEOPT_RECEIPT_OUT"], "r.bin")
+
     def test_guest_only_build_and_loaded_kernel(self):
         result = mock.Mock(stdout='{"stats": {}}')
         with mock.patch.dict("os.environ", {"TRACEOPT_KERNEL_ELF": "stale.bin"}), \
