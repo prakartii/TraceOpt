@@ -2,6 +2,7 @@
 //! one JSON object with the measurements RISC Zero exposes.
 //!
 //! Usage: host <execute|prove> <probe|kernel> [word ...]
+//!        host verify <probe|kernel> <receipt file> <image ID>   (see `verify`)
 //!
 //! - `probe`:  Rust-only guest; input is one u32 n (the first word); journal
 //!             is the u32 result.
@@ -69,9 +70,52 @@ fn peak_memory_kib() -> Option<u64> {
     line.split_whitespace().nth(1)?.parse().ok()
 }
 
+/// `verify <guest> <receipt file> <image ID>`: what a blockchain's verifier
+/// does. It never runs the program: it checks the proof against the image ID
+/// of the program that should have run, then reads the answer from the
+/// journal. Prints `"valid": false` and exits with 1 if the check fails.
+fn verify(args: &[String]) -> Result<()> {
+    let [_, _, guest, path, image] = args else {
+        bail!("usage: host verify <probe|kernel> <receipt file> <image ID in hex>");
+    };
+    let image_id = <Digest as hex::FromHex>::from_hex(image)
+        .map_err(|e| anyhow::anyhow!("image ID must be 64 hex digits: {e}"))?;
+    let bytes = std::fs::read(path).with_context(|| format!("reading {path}"))?;
+    let mut report = json!({
+        "mode": "verify", "guest": guest, "receipt_file": path,
+        "receipt_file_bytes": bytes.len(), "image_id": image,
+    });
+    let start = Instant::now();
+    let checked = bincode::deserialize::<risc0_zkvm::Receipt>(&bytes)
+        .map_err(|e| anyhow::anyhow!("not a readable receipt: {e}"))
+        .and_then(|receipt| {
+            receipt.verify(image_id).map_err(|e| anyhow::anyhow!("{e}"))?;
+            Ok(receipt)
+        });
+    report["verify_seconds"] = json!(start.elapsed().as_secs_f64());
+    match checked {
+        Ok(receipt) => {
+            report["valid"] = json!(true);
+            report["seal_bytes"] = json!(receipt.seal_size());
+            report["result"] = decode_output(guest, &receipt.journal)?;
+            println!("{report}");
+            Ok(())
+        }
+        Err(e) => {
+            report["valid"] = json!(false);
+            report["error"] = json!(e.to_string());
+            println!("{report}");
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mode = args.get(1).map(String::as_str).unwrap_or("execute");
+    if mode == "verify" {
+        return verify(&args);
+    }
     let guest = args.get(2).map(String::as_str).unwrap_or("probe");
     let mut words: Vec<u32> = args[3.min(args.len())..]
         .iter()
