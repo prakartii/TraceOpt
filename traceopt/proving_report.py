@@ -179,7 +179,12 @@ def render(reports: list[dict], succinct: list[dict], staircase: dict | None,
                 '<li>Proving times vary by up to about 75% between runs on this laptop; '
                 'versions are proved alternately and the median is shown. Memory does not '
                 'vary.</li>'
-                '<li>One machine, the CPU prover, a few small programs.</li></ul>'
+                '<li>One machine, the CPU prover, a few small programs.</li>'
+                '<li>These programs are cases where TraceOpt chose to unroll. In the executor '
+                'evaluation (<code>results/evaluation-clang21.json</code>) plain '
+                '<code>clang -O2</code> did better than TraceOpt in 1 of 16 cases '
+                '(<code>nested_fnv</code>, n = 3000: 262,144 against 524,288 cycles); that '
+                'case is not proved here.</li></ul>'
                 '<h3>Reproduce</h3><pre><code>scripts/prove_compare.sh demos/fib.c 20000 '
                 '--conventional O2 O3\nscripts/prove_staircase.sh demos/fib.c --n 1000 8000 '
                 '18000\npython3 scripts/make_proving_report.py</code></pre></main>')
