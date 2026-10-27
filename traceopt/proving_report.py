@@ -50,7 +50,7 @@ def change(before: float, after: float) -> str:
     return f"{(after - before) / before * 100:+.0f}%" if before else ""
 
 
-def bars_svg(report: dict, metric: str, width: int = 460) -> str:
+def bars_svg(report: dict, metric: str, width: int = 380) -> str:
     """One horizontal bar per version: median proving time (with the range of
     the proofs as a whisker) or peak memory, with the change to the original."""
     versions = report["versions"]
@@ -63,7 +63,7 @@ def bars_svg(report: dict, metric: str, width: int = 460) -> str:
         value = lambda v: v["peak_memory_kib"] / 1024  # noqa: E731
         show = lambda x: f"{x:,.0f} MiB"  # noqa: E731
         span = None
-    label_w, right, row_h, top = 175, 120, 28, 6
+    label_w, right, row_h, top = 165, 95, 28, 6
     bar_w = width - label_w - right
     top_value = max((span(v)[1] if span else value(v)) for v in versions.values())
     x = lambda v: label_w + bar_w * v / top_value  # noqa: E731
