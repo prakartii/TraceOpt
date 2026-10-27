@@ -1,0 +1,88 @@
+{
+ "description": "real RISC Zero proofs of the original and TraceOpt's choice (scripts/prove_compare.py)",
+ "created": "2026-10-27T15:55:26+00:00",
+ "program": "strided_rw",
+ "inputs": [
+  5
+ ],
+ "function": "traceopt_kernel",
+ "expected": 3528213632,
+ "selected": "unroll4",
+ "receipt": "composite",
+ "repeat": 3,
+ "margin_percent": 10.0,
+ "segment_po2": null,
+ "versions": {
+  "unroll1": {
+   "version": "unroll1",
+   "prove_seconds": [
+    49.52417066,
+    41.480016903,
+    40.872778667
+   ],
+   "median_prove_seconds": 41.480016903,
+   "peak_memory_kib": 2403932,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 73435,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  },
+  "unroll4": {
+   "version": "unroll4",
+   "prove_seconds": [
+    25.129786274,
+    20.339597741,
+    20.336575394
+   ],
+   "median_prove_seconds": 20.339597741,
+   "peak_memory_kib": 1214500,
+   "seal_bytes": 243944,
+   "total_cycles": 131072,
+   "user_cycles": 48286,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  },
+  "clang-O2": {
+   "version": "clang-O2",
+   "prove_seconds": [
+    48.436727759,
+    41.046074838,
+    41.462140639
+   ],
+   "median_prove_seconds": 41.462140639,
+   "peak_memory_kib": 2403772,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 73435,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  },
+  "clang-O3": {
+   "version": "clang-O3",
+   "prove_seconds": [
+    49.356223042,
+    40.348747328,
+    40.679560936
+   ],
+   "median_prove_seconds": 40.679560936,
+   "peak_memory_kib": 2403932,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 73435,
+   "segments": 1,
+   "output": 3528213632,
+   "correct": true
+  }
+ },
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
