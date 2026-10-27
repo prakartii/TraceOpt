@@ -154,6 +154,10 @@ def main() -> int:
                              "compressed into one proof")
     parser.add_argument("--max-po2", type=int, default=18,
                         help="refuse to prove segments above 2^this cycles (default 18)")
+    parser.add_argument("--segment-po2", type=int,
+                        help="split every version's run into segments of at most 2^this "
+                             "cycles (RISC Zero's segment limit), so a long run fits in "
+                             "memory; applied to all versions alike")
     parser.add_argument("--conventional", nargs="*", default=[], choices=("O2", "O3"),
                         help="also prove the program built by plain clang at these "
                              "levels, with LLVM's own unrolling (e.g. --conventional O2 O3)")
@@ -191,11 +195,13 @@ def main() -> int:
     names = list(dict.fromkeys(["unroll1", selected, *conventional]))
     elfs = build_elfs(prog, names)
     for name in names:
-        stats = backend.execute(words, kernel_elf=elfs[name])["stats"]
+        stats = backend.execute(words, segment_po2=args.segment_po2,
+                                kernel_elf=elfs[name])["stats"]
         if not fits(stats, args.max_po2):
             print(f"stopped: {factor_label(name)} has segments above 2^{args.max_po2} "
-                  "cycles; proving them may run out of memory (raise --max-po2 only with "
-                  "enough RAM)", file=sys.stderr)
+                  f"cycles; proving them may run out of memory (use --segment-po2 "
+                  f"{args.max_po2} to split them, or raise --max-po2 only with enough "
+                  "RAM)", file=sys.stderr)
             return 1
 
     runs: dict[str, list[dict]] = {name: [] for name in names}
@@ -203,7 +209,8 @@ def main() -> int:
         for name in names:
             print(f"  proof {i + 1}/{args.repeat} of {factor_label(name)}...", end="",
                   flush=True)
-            report = backend.prove(words, kernel_elf=elfs[name], receipt=args.receipt)
+            report = backend.prove(words, segment_po2=args.segment_po2,
+                                   kernel_elf=elfs[name], receipt=args.receipt)
             print(f" {report['prove_seconds']:.1f} s", flush=True)
             runs[name].append(report)
 
@@ -216,7 +223,8 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     suffix = ("" if args.receipt == "composite" else f"-{args.receipt}") + \
-        ("-vs-clang" if conventional else "")
+        ("-vs-clang" if conventional else "") + \
+        (f"-po2_{args.segment_po2}" if args.segment_po2 else "")
     path = args.out / f"{label}{suffix}.json"
     path.write_text(json.dumps({
         "description": "real RISC Zero proofs of the original and TraceOpt's choice "
@@ -225,6 +233,7 @@ def main() -> int:
         "program": args.program, "inputs": values, "function": sig.function,
         "expected": expected, "selected": selected, "receipt": args.receipt,
         "repeat": args.repeat, "margin_percent": args.margin,
+        "segment_po2": args.segment_po2,
         "versions": rows, "toolchain": backend.toolchain_versions(),
     }, indent=1) + "\n")
     print(f"\nwritten to {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
