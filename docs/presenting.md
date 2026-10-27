@@ -41,6 +41,22 @@ Start `scripts/demo.sh`. It stops after every step; press Enter to go on.
 | Evaluation | 16 cases | "12 cases had nothing to gain, 1 win was taken, 3 were missed, and TraceOpt never made things worse." |
 | Closing | Limits | Read the limits out: small kernels, one optimization, executor cycle counts rather than full proofs, tests rather than proofs of equivalence. |
 
+## The staircase chart
+
+Open `results/proving/staircase-fib-time.svg` (and `-memory.svg`) in a
+browser. Every dot is a real RISC Zero proof of `demos/fib.c`.
+
+- "Left to right the program runs more cycles, but proving time does not
+  rise smoothly: it is flat on each step and jumps at a power of two."
+- "Inside the 65,536 step the program ran 3.4 times as many cycles, from
+  11,862 to 40,354, and proving still took 9 to 15 seconds."
+- "The arrow is TraceOpt: at n = 18,000 the original needs the 262,144
+  step, 54 s and 2.3 GB; the 8x version lands on 65,536, 13 s and 0.6 GB.
+  That is the step TraceOpt predicts before running anything."
+- If asked why two points at the same step differ in time: each dot is the
+  median of 2 proofs, and the bars show the spread; the laptop's speed
+  varies, memory does not.
+
 ## When the audience chooses the inputs
 
 Run `scripts/live.sh` and let them type. It asks for a program (1–5, a
