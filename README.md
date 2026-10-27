@@ -591,8 +591,10 @@ TraceOpt/
 - The IR parser handles the subset of LLVM IR the benchmarks need and rejects
   `switch`, `invoke`, and other constructs it does not model.
 - Correctness is checked by differential testing, not formal equivalence proofs.
-- Proving time may be measurable only for small programs on the development
-  machine (about 7.6 GB of RAM available to WSL).
+- Proving time and memory are measured only for runs with segments of at
+  most 2^18 cycles (`scripts/prove_compare.sh`); larger segments ran out of
+  memory on the development machine (about 7.6 GB of RAM available to WSL).
+  Times drift as the laptop heats up, so the versions are proved alternately.
 - The cost model is calibrated on four small kernels and may not
   generalize; it under-predicts memory-heavy loops and multi-segment paging
   (docs/experiments.md).
