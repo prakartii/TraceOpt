@@ -144,6 +144,7 @@ fn main() -> Result<()> {
             let info = default_prover().prove_with_opts(env, elf, &opts)?;
             report["prove_seconds"] = json!(start.elapsed().as_secs_f64());
             info.receipt.verify(id)?;
+            report["image_id"] = json!(id.to_string());
             report["seal_bytes"] = json!(info.receipt.seal_size());
             report["peak_memory_kib"] = json!(peak_memory_kib());
             report["result"] = decode_output(guest, &info.receipt.journal)?;
