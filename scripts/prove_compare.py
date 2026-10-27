@@ -24,15 +24,16 @@ import importlib.util
 import json
 import statistics
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from traceopt import backend, native, toolchain  # noqa: E402
+from traceopt import backend, native, signature, toolchain  # noqa: E402
 from traceopt.decision import Policy  # noqa: E402
 from traceopt.model import CostModel  # noqa: E402
-from traceopt.optimize import optimize  # noqa: E402
+from traceopt.optimize import Result, optimize  # noqa: E402
 from traceopt.present import factor_label, fmt, table  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("live", ROOT / "scripts" / "live.py")
@@ -57,6 +58,52 @@ def summarize(name: str, runs: list[dict]) -> dict:
             "user_cycles": first["stats"]["user_cycles"],
             "segments": first["stats"]["segments"],
             "output": first["result"]["output"]}
+
+
+@dataclass
+class Program:
+    label: str
+    work: Path
+    base_ir: Path
+    sig: signature.Signature
+    values: list[int]
+    expected: int
+    result: Result
+
+
+def prepare(program: str, inputs: list[str], work_root: Path, model: Path,
+            margin: float) -> Program:
+    """Compile the program, compute the native answer and run TraceOpt on it."""
+    src, builtin, function = live.resolve_program(program)
+    values = live.check_values(builtin, live.parse_values(inputs))
+    label = f"{builtin or src.stem}-{'_'.join(map(str, values)) or 'none'}"
+    work = work_root / label
+    work.mkdir(parents=True, exist_ok=True)
+    top_ir, base_ir = live.compile_program(src, work)
+    sig = live.read_signature(src, top_ir, base_ir, function)
+    expected = sig.result(native.run(native.build(src, work / "native", sig),
+                                     sig.raw_values(values)))
+    result = optimize(src, sig.ir_args(values), CostModel.load(model), work,
+                      policy=Policy(uncertainty=margin / 100), function=sig.function)
+    return Program(label, work, base_ir, sig, values, expected, result)
+
+
+def build_elfs(prog: Program, names: list[str]) -> dict[str, Path]:
+    """Build a guest for each version and keep a copy of each program binary."""
+    entry = toolchain.entry_object(prog.sig.entry_ir(toolchain.target_lines(prog.base_ir)),
+                                   prog.work / "entry.o")
+    variants = {v.name: v for v in prog.result.variants}
+    elfs = {}
+    for name in names:
+        backend.build(obj=variants[name].obj, entry=entry, guest_only=True, quiet=True)
+        elfs[name] = prog.work / f"{name}.bin"
+        elfs[name].write_bytes(backend.KERNEL_BIN.read_bytes())
+    return elfs
+
+
+def fits(stats: dict, max_po2: int) -> bool:
+    """Whether every segment of an executed run is at most 2^max_po2 cycles."""
+    return stats["total_cycles"] / stats["segments"] <= 1 << max_po2
 
 
 def main() -> int:
@@ -84,20 +131,12 @@ def main() -> int:
         return 2
 
     try:
-        src, builtin, function = live.resolve_program(args.program)
-        values = live.check_values(builtin, live.parse_values(args.inputs))
-        label = f"{builtin or src.stem}-{'_'.join(map(str, values)) or 'none'}"
-        work = args.work / label
-        work.mkdir(parents=True, exist_ok=True)
-        top_ir, base_ir = live.compile_program(src, work)
-        sig = live.read_signature(src, top_ir, base_ir, function)
-        expected = sig.result(native.run(native.build(src, work / "native", sig),
-                                         sig.raw_values(values)))
-        result = optimize(src, sig.ir_args(values), CostModel.load(args.model), work,
-                          policy=Policy(uncertainty=args.margin / 100), function=sig.function)
+        prog = prepare(args.program, args.inputs, args.work, args.model, args.margin)
     except (live.StageError, native.NativeError) as e:
         print(f"stopped: {e}", file=sys.stderr)
         return 1
+    label, sig, values, expected, result = (prog.label, prog.sig, prog.values,
+                                            prog.expected, prog.result)
 
     selected = result.decision.selected
     print(f"{label}: TraceOpt chose {factor_label(selected)}")
@@ -107,21 +146,14 @@ def main() -> int:
         return 0
 
     words = sig.words(values)
-    entry = toolchain.entry_object(sig.entry_ir(toolchain.target_lines(base_ir)),
-                                   work / "entry.o")
-    variants = {v.name: v for v in result.variants}
     names = ["unroll1", selected]
-    elfs = {}
+    elfs = build_elfs(prog, names)
     for name in names:
-        backend.build(obj=variants[name].obj, entry=entry, guest_only=True, quiet=True)
-        elfs[name] = work / f"{name}.bin"
-        elfs[name].write_bytes(backend.KERNEL_BIN.read_bytes())
         stats = backend.execute(words, kernel_elf=elfs[name])["stats"]
-        per_segment = stats["total_cycles"] / stats["segments"]
-        if per_segment > 1 << args.max_po2:
-            print(f"stopped: {factor_label(name)} has segments of {fmt(per_segment)} cycles, "
-                  f"above 2^{args.max_po2}; proving them may run out of memory "
-                  "(raise --max-po2 only with enough RAM)", file=sys.stderr)
+        if not fits(stats, args.max_po2):
+            print(f"stopped: {factor_label(name)} has segments above 2^{args.max_po2} "
+                  "cycles; proving them may run out of memory (raise --max-po2 only with "
+                  "enough RAM)", file=sys.stderr)
             return 1
 
     runs: dict[str, list[dict]] = {name: [] for name in names}

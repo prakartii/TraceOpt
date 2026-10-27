@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 _spec = importlib.util.spec_from_file_location("prove_compare",
                                                ROOT / "scripts" / "prove_compare.py")
 prove_compare = importlib.util.module_from_spec(_spec)
+sys.modules["prove_compare"] = prove_compare   # @dataclass looks its module up here
 _spec.loader.exec_module(prove_compare)
 
 
@@ -35,6 +36,13 @@ class SummarizeTest(unittest.TestCase):
         self.assertEqual(s["peak_memory_kib"], 1200)
         self.assertEqual((s["seal_bytes"], s["total_cycles"], s["segments"], s["output"]),
                          (200_000, 131072, 1, 42))
+
+
+class FitsTest(unittest.TestCase):
+    def test_segment_limit(self):
+        self.assertTrue(prove_compare.fits({"total_cycles": 262144, "segments": 1}, 18))
+        self.assertFalse(prove_compare.fits({"total_cycles": 524288, "segments": 1}, 18))
+        self.assertTrue(prove_compare.fits({"total_cycles": 524288, "segments": 2}, 18))
 
 
 class ArgumentsTest(unittest.TestCase):
