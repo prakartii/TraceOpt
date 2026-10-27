@@ -37,8 +37,9 @@ runs:
 | 262,144 | 3 | 112,354 – 148,354 | 45.2 s (39.4 – 54.4) | 2,348 MiB |
 
 Inside the 65,536 bucket the program ran from 11,862 to 40,354 cycles
-(3.4 times as many) and proving time stayed between 9.3 and 14.8 s; each
-step up roughly doubles time and exactly doubles memory.
+(3.4 times as many) and proving time stayed between 9.3 and 14.8 s. Each
+step up multiplies the median time by 2.5, 2.0 and 2.0, and memory by 1.96,
+1.98 and 1.99.
 
 ![Proving time against program cycles](staircase-fib-time.svg)
 
