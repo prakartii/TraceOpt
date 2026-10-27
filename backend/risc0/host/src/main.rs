@@ -19,6 +19,9 @@
 //! per-segment proofs into one constant-size proof (default: `composite`,
 //! one proof per segment).
 //!
+//! `TRACEOPT_RECEIPT_OUT=<path>` saves the receipt (proof plus journal) to
+//! that file, for `verify`.
+//!
 //! `TRACEOPT_KERNEL_ELF=<path>` runs the kernel guest from that program
 //! binary (the `kernel.bin` risc0-build writes) instead of the one embedded
 //! at build time, so a new kernel variant only needs the guest rebuilt.
@@ -145,6 +148,12 @@ fn main() -> Result<()> {
             report["prove_seconds"] = json!(start.elapsed().as_secs_f64());
             info.receipt.verify(id)?;
             report["image_id"] = json!(id.to_string());
+            if let Ok(path) = std::env::var("TRACEOPT_RECEIPT_OUT") {
+                let bytes = bincode::serialize(&info.receipt).context("encoding the receipt")?;
+                std::fs::write(&path, &bytes).with_context(|| format!("writing {path}"))?;
+                report["receipt_file"] = json!(path);
+                report["receipt_file_bytes"] = json!(bytes.len());
+            }
             report["seal_bytes"] = json!(info.receipt.seal_size());
             report["peak_memory_kib"] = json!(peak_memory_kib());
             report["result"] = decode_output(guest, &info.receipt.journal)?;
