@@ -423,6 +423,17 @@ verified and its answer checked. Results go to `results/proving/`. Segments
 above 2^18 cycles are refused by default (`--max-po2`), because larger ones
 ran out of memory on the development machine.
 
+### The proving-cost staircase (WSL, then any OS)
+
+```bash
+# pick inputs cheaply: executor only, prints cycles and proved size per n
+scripts/prove_staircase.sh demos/fib.c --n 1000 2000 8000 --execute-only
+# prove the original and 8x at each n (2 proofs each)
+scripts/prove_staircase.sh demos/fib.c --n 1000 2000 8000 --versions 1 8
+# draw it (no plotting library needed): writes ...-time.svg and ...-memory.svg
+python3 scripts/plot_staircase.py results/proving/staircase-fib.json --highlight 8000
+```
+
 ### Run a benchmark in the zkVM (WSL)
 
 ```bash
