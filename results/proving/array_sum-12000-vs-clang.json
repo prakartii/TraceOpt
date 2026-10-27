@@ -1,0 +1,88 @@
+{
+ "description": "real RISC Zero proofs of the original and TraceOpt's choice (scripts/prove_compare.py)",
+ "created": "2026-10-27T16:05:24+00:00",
+ "program": "demos/array_sum.c",
+ "inputs": [
+  12000
+ ],
+ "function": "sum",
+ "expected": 71994000,
+ "selected": "unroll8",
+ "receipt": "composite",
+ "repeat": 3,
+ "margin_percent": 10.0,
+ "segment_po2": null,
+ "versions": {
+  "unroll1": {
+   "version": "unroll1",
+   "prove_seconds": [
+    40.457306522,
+    43.112281341,
+    51.505297802
+   ],
+   "median_prove_seconds": 43.112281341,
+   "peak_memory_kib": 2405276,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124358,
+   "segments": 1,
+   "output": 71994000,
+   "correct": true
+  },
+  "unroll8": {
+   "version": "unroll8",
+   "prove_seconds": [
+    22.058908851,
+    20.442948169,
+    26.592186691
+   ],
+   "median_prove_seconds": 22.058908851,
+   "peak_memory_kib": 1210584,
+   "seal_bytes": 243944,
+   "total_cycles": 131072,
+   "user_cycles": 82363,
+   "segments": 1,
+   "output": 71994000,
+   "correct": true
+  },
+  "clang-O2": {
+   "version": "clang-O2",
+   "prove_seconds": [
+    41.506009616,
+    41.360433969,
+    62.74452352
+   ],
+   "median_prove_seconds": 41.506009616,
+   "peak_memory_kib": 2405440,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124358,
+   "segments": 1,
+   "output": 71994000,
+   "correct": true
+  },
+  "clang-O3": {
+   "version": "clang-O3",
+   "prove_seconds": [
+    40.521832816,
+    41.525304515,
+    63.398550172
+   ],
+   "median_prove_seconds": 41.525304515,
+   "peak_memory_kib": 2405664,
+   "seal_bytes": 255656,
+   "total_cycles": 262144,
+   "user_cycles": 124358,
+   "segments": 1,
+   "output": 71994000,
+   "correct": true
+  }
+ },
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
