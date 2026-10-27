@@ -1,0 +1,89 @@
+{
+ "description": "real RISC Zero proofs of the original and TraceOpt's choice (scripts/prove_compare.py)",
+ "created": "2026-10-27T15:47:26+00:00",
+ "program": "demos/counter.c",
+ "inputs": [
+  1000,
+  3
+ ],
+ "function": "tally",
+ "expected": 124125,
+ "selected": "unroll8",
+ "receipt": "composite",
+ "repeat": 3,
+ "margin_percent": 10.0,
+ "segment_po2": null,
+ "versions": {
+  "unroll1": {
+   "version": "unroll1",
+   "prove_seconds": [
+    8.411801906,
+    10.357401644,
+    12.252416196
+   ],
+   "median_prove_seconds": 10.357401644,
+   "peak_memory_kib": 610952,
+   "seal_bytes": 220904,
+   "total_cycles": 65536,
+   "user_cycles": 13364,
+   "segments": 1,
+   "output": 124125,
+   "correct": true
+  },
+  "unroll8": {
+   "version": "unroll8",
+   "prove_seconds": [
+    4.410231425,
+    6.130851226,
+    6.319551673
+   ],
+   "median_prove_seconds": 6.130851226,
+   "peak_memory_kib": 311700,
+   "seal_bytes": 209256,
+   "total_cycles": 32768,
+   "user_cycles": 8522,
+   "segments": 1,
+   "output": 124125,
+   "correct": true
+  },
+  "clang-O2": {
+   "version": "clang-O2",
+   "prove_seconds": [
+    8.772267073,
+    12.111617525,
+    12.423255958
+   ],
+   "median_prove_seconds": 12.111617525,
+   "peak_memory_kib": 611224,
+   "seal_bytes": 220904,
+   "total_cycles": 65536,
+   "user_cycles": 13364,
+   "segments": 1,
+   "output": 124125,
+   "correct": true
+  },
+  "clang-O3": {
+   "version": "clang-O3",
+   "prove_seconds": [
+    9.077291462,
+    11.67152858,
+    12.011012005
+   ],
+   "median_prove_seconds": 11.67152858,
+   "peak_memory_kib": 611196,
+   "seal_bytes": 220904,
+   "total_cycles": 65536,
+   "user_cycles": 13364,
+   "segments": 1,
+   "output": 124125,
+   "correct": true
+  }
+ },
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
