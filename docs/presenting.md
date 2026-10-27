@@ -43,8 +43,11 @@ Start `scripts/demo.sh`. It stops after every step; press Enter to go on.
 
 ## The staircase chart
 
-Open `results/proving/staircase-fib-time.svg` (and `-memory.svg`) in a
-browser. Every dot is a real RISC Zero proof of `demos/fib.c`.
+Open `results/proving/proving-report.html` in a browser: it has the
+staircase charts, bar charts of original vs TraceOpt vs plain Clang for
+each program, and every measurement in one table. (The charts alone are
+`results/proving/staircase-fib-time.svg` and `-memory.svg`.) Every dot is
+a real RISC Zero proof of `demos/fib.c`.
 
 - "Left to right the program runs more cycles, but proving time does not
   rise smoothly: it is flat on each step and jumps at a power of two."
