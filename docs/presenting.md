@@ -129,6 +129,12 @@ Other inputs, one per kind of case (all checked end to end; files are in
 - **Why not real proving time?** Proving the larger runs did not fit in the
   development machine's memory. Proving work follows the padded cycle count,
   which the executor reports exactly.
+- **Can you optimize the proof itself, not just the cycle count?** The
+  final on-chain proof (Groth16) has the same size for every program, so no
+  compiler can shrink it. What TraceOpt changes is the work to generate the
+  proof: `scripts/prove_compare.sh` runs the real prover, and on
+  `demos/fib.c 20000` proving took 72% less time and 75% less memory, and
+  the per-segment proof was 13.6% smaller (`results/proving/`).
 - **Is the unrolled code proven equivalent?** No. It is LLVM's own
   transformation, checked by running it on test inputs in the interpreter
   and in the zkVM.
