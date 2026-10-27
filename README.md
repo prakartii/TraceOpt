@@ -402,6 +402,21 @@ skip the zkVM run (`--max-cycles` changes the limit). Undefined behavior such
 as division by zero is reported instead of compared. Examples are in
 [`examples/kernels/`](examples/kernels/).
 
+### Real proofs: original vs TraceOpt's choice (WSL)
+
+```bash
+scripts/prove_compare.sh strided_rw 5                  # 3 proofs of each version
+scripts/prove_compare.sh demos/fib.c 20000 --repeat 1
+scripts/prove_compare.sh demos/fib.c 20000 --receipt succinct   # one compressed proof
+```
+
+Runs the prover (not just the executor) on the original and the version
+TraceOpt chooses, alternately, and reports the proved size, proving time
+(median), peak memory and the size of the proof itself, with every proof
+verified and its answer checked. Results go to `results/proving/`. Segments
+above 2^18 cycles are refused by default (`--max-po2`), because larger ones
+ran out of memory on the development machine.
+
 ### Run a benchmark in the zkVM (WSL)
 
 ```bash
