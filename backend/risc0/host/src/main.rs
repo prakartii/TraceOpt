@@ -14,7 +14,8 @@
 //! comparing variants.
 //!
 //! `prove` also reports `seal_bytes`, the size of the proof itself (the
-//! receipt's seals, without the journal).
+//! receipt's seals, without the journal), and `peak_memory_kib`, the host's
+//! peak resident memory.
 //!
 //! `TRACEOPT_KERNEL_ELF=<path>` runs the kernel guest from that program
 //! binary (the `kernel.bin` risc0-build writes) instead of the one embedded
@@ -54,6 +55,13 @@ fn stats_json(stats: &SessionStats) -> Value {
         "paging_cycles": stats.paging_cycles,
         "reserved_cycles": stats.reserved_cycles,
     })
+}
+
+/// Peak resident memory of this process in KiB (VmHWM), on Linux.
+fn peak_memory_kib() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    let line = status.lines().find(|l| l.starts_with("VmHWM:"))?;
+    line.split_whitespace().nth(1)?.parse().ok()
 }
 
 fn main() -> Result<()> {
@@ -127,6 +135,7 @@ fn main() -> Result<()> {
             report["prove_seconds"] = json!(start.elapsed().as_secs_f64());
             info.receipt.verify(id)?;
             report["seal_bytes"] = json!(info.receipt.seal_size());
+            report["peak_memory_kib"] = json!(peak_memory_kib());
             report["result"] = decode_output(guest, &info.receipt.journal)?;
             report["stats"] = stats_json(&info.stats);
             report["dev_mode"] = json!(std::env::var("RISC0_DEV_MODE").unwrap_or_default());
