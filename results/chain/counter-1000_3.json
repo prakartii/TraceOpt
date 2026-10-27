@@ -1,0 +1,58 @@
+{
+ "description": "prover and verifier with real RISC Zero receipts (scripts/chain_demo.py)",
+ "created": "2026-10-27T16:49:22+00:00",
+ "program": "demos/counter.c",
+ "inputs": [
+  1000,
+  3
+ ],
+ "function": "tally",
+ "expected": 124125,
+ "selected": "unroll8",
+ "versions": {
+  "unroll1": {
+   "image_id": "779dc18fd759e28dfc8c225d53ad6ea17ef19348af4195d9ec6941506d5670f6",
+   "total_cycles": 65536,
+   "prove_seconds": 8.199046947,
+   "peak_memory_kib": 610392,
+   "receipt_file_bytes": 221242,
+   "verify_seconds": 0.014664918,
+   "valid": true,
+   "answer": 124125
+  },
+  "unroll8": {
+   "image_id": "ee9baf323223cf376625ba8d458dc9b12ac4645ce0d192076e1988243f5ec644",
+   "total_cycles": 32768,
+   "prove_seconds": 4.428248816,
+   "peak_memory_kib": 311520,
+   "receipt_file_bytes": 209594,
+   "verify_seconds": 0.013249544,
+   "valid": true,
+   "answer": 124125
+  }
+ },
+ "attacks": [
+  {
+   "attempt": "one bit changed in the receipt (byte 104,797)",
+   "valid": false,
+   "error": "verification indicates proof is invalid"
+  },
+  {
+   "attempt": "original (no unrolling)'s receipt presented as unrolled 8x",
+   "valid": false,
+   "error": "claim digest does not match the expected digest 9eb63f4f6acba24aca360a1f7044a7d9b7c99531941ee406f0f061af9e6fba32; expected b4b8c3a150565779fab11eef4bbdd6a91bbccadf25b0c190e8830065f1b0ff16"
+  },
+  {
+   "attempt": "receipt presented as an unknown program (image ID all zeros)",
+   "valid": false,
+   "error": "claim digest does not match the expected digest 7d8e00b3fc4214602005335d0b71392eb86257cff3b621889edd5d4e18a4788a; expected 7421002bbf71da236d2908f97eeb76f5c2b0bf9a1b51651c09bf857339a39e80"
+  }
+ ],
+ "toolchain": {
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo-risczero": "cargo-risczero 3.0.6",
+  "r0vm": "risc0-r0vm 3.0.6",
+  "risc0_gcc": "riscv32-unknown-elf-gcc (gc891d8dc23e) 13.2.0",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+ }
+}
