@@ -178,7 +178,7 @@ def main() -> int:
     data = json.loads(args.results.read_text())
     for metric in METRICS:
         path = args.results.with_name(f"{args.results.stem}-{metric}.svg")
-        path.write_text(svg(data, metric, args.highlight), encoding="utf-8")
+        path.write_text(svg(data, metric, args.highlight), encoding="utf-8", newline="\n")
         print(f"written to {path}")
     return 0
 
