@@ -1,6 +1,8 @@
 """Helpers of scripts/prove_compare.py (no LLVM or zkVM needed)."""
 
 import importlib.util
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -33,6 +35,20 @@ class SummarizeTest(unittest.TestCase):
         self.assertEqual(s["peak_memory_kib"], 1200)
         self.assertEqual((s["seal_bytes"], s["total_cycles"], s["segments"], s["output"]),
                          (200_000, 131072, 1, 42))
+
+
+class ArgumentsTest(unittest.TestCase):
+    def run_script(self, *argv):
+        return subprocess.run([sys.executable, str(ROOT / "scripts" / "prove_compare.py"),
+                               *argv], capture_output=True, text=True)
+
+    def test_rejects_bad_options_before_any_work(self):
+        proc = self.run_script("xorshift", "5", "--repeat", "0")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("--repeat must be at least 1", proc.stderr)
+        proc = self.run_script("xorshift", "5", "--receipt", "groth16")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("invalid choice", proc.stderr)
 
 
 if __name__ == "__main__":
