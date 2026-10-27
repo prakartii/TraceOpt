@@ -13,6 +13,9 @@
 //! lower prover memory but add per-segment paging, so keep it fixed when
 //! comparing variants.
 //!
+//! `prove` also reports `seal_bytes`, the size of the proof itself (the
+//! receipt's seals, without the journal).
+//!
 //! `TRACEOPT_KERNEL_ELF=<path>` runs the kernel guest from that program
 //! binary (the `kernel.bin` risc0-build writes) instead of the one embedded
 //! at build time, so a new kernel variant only needs the guest rebuilt.
@@ -123,6 +126,7 @@ fn main() -> Result<()> {
             let info = default_prover().prove(env, elf)?;
             report["prove_seconds"] = json!(start.elapsed().as_secs_f64());
             info.receipt.verify(id)?;
+            report["seal_bytes"] = json!(info.receipt.seal_size());
             report["result"] = decode_output(guest, &info.receipt.journal)?;
             report["stats"] = stats_json(&info.stats);
             report["dev_mode"] = json!(std::env::var("RISC0_DEV_MODE").unwrap_or_default());
