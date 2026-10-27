@@ -194,7 +194,10 @@ is a model failure on a memory-heavy, multi-segment run.
 version): where TraceOpt chose an unrolled version, proving it took 39–72%
 less time and 49–75% less peak memory, and the proof was 4.6–13.6% smaller
 (4 cases with one segment of at most 2^18 cycles; table in
-[results/proving/README.md](results/proving/README.md)).
+[results/proving/README.md](results/proving/README.md)). In the same four
+cases, plain `clang -O2` and `-O3` stayed in the original's proved size and
+proved within −4% to +17% of the original's time. All results are on one
+page: `results/proving/proving-report.html`.
 
 **The staircase** (`results/proving/staircase-fib.json`, 28 real proofs of
 `demos/fib.c`): proving time stays flat inside a proved size and jumps at
