@@ -67,15 +67,36 @@ def execute(n: int | list[int], segment_po2: int | None = None,
     (Signature.words). `kernel_elf` runs that program binary instead of the
     embedded guest.
     """
+    return _run_host("execute", n, segment_po2, kernel_elf, {})
+
+
+def prove(n: int | list[int], segment_po2: int | None = None,
+          kernel_elf: Path | None = None, receipt: str = "composite") -> dict:
+    """Prove the kernel guest and return the host's JSON report.
+
+    Like execute(), plus prove_seconds, seal_bytes (the proof's size) and
+    peak_memory_kib. `receipt` is "composite" (one proof per segment) or
+    "succinct" (compressed into one proof). Needs far more memory than
+    execute(): keep segments at 2^18 cycles or below on a small machine.
+    """
+    if receipt not in ("composite", "succinct"):
+        raise ValueError(f"receipt must be composite or succinct, not {receipt!r}")
+    return _run_host("prove", n, segment_po2, kernel_elf, {"TRACEOPT_RECEIPT": receipt})
+
+
+def _run_host(mode: str, n: int | list[int], segment_po2: int | None,
+              kernel_elf: Path | None, extra: dict[str, str]) -> dict:
     env = dict(os.environ)
-    env.pop("TRACEOPT_SEGMENT_PO2", None)
-    env.pop("TRACEOPT_KERNEL_ELF", None)
+    for name in ("TRACEOPT_SEGMENT_PO2", "TRACEOPT_KERNEL_ELF", "TRACEOPT_RECEIPT",
+                 "RISC0_DEV_MODE"):
+        env.pop(name, None)
     if segment_po2 is not None:
         env["TRACEOPT_SEGMENT_PO2"] = str(segment_po2)
     if kernel_elf is not None:
         env["TRACEOPT_KERNEL_ELF"] = str(kernel_elf)
+    env.update(extra)
     words = [n] if isinstance(n, int) else list(n)
-    out = subprocess.run([str(HOST), "execute", "kernel", *map(str, words)], env=env,
+    out = subprocess.run([str(HOST), mode, "kernel", *map(str, words)], env=env,
                          capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
