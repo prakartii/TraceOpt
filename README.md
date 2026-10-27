@@ -439,6 +439,8 @@ scripts/prove_staircase.sh demos/fib.c --n 1000 2000 8000 --execute-only
 scripts/prove_staircase.sh demos/fib.c --n 1000 2000 8000 --versions 1 8
 # draw it (no plotting library needed): writes ...-time.svg and ...-memory.svg
 python3 scripts/plot_staircase.py results/proving/staircase-fib.json --highlight 8000
+# one HTML page with every real-proof result and its charts (any OS)
+python3 scripts/make_proving_report.py   # writes results/proving/proving-report.html
 ```
 
 ### Run a benchmark in the zkVM (WSL)
