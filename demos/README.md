@@ -25,6 +25,12 @@ a bucket edge may change after the model is recalibrated.
 | `demos/matrix.c 5000` | original kept: 2x rejected as too risky (a missed win) | 1,048,576 |
 | `demos/array_sum.c 100000` | original kept: 2x saves less than 5% | 1,064,960 |
 
+To generate real proofs instead of only executing, use
+`scripts/prove_compare.sh` with the same arguments, e.g.
+`scripts/prove_compare.sh demos/fib.c 20000` (about 4 minutes; results for
+`fib.c`, `array_sum.c` and `counter.c` are in
+[../results/proving/](../results/proving/README.md)).
+
 In some runs a version that was not chosen has a wrong predicted size (stage
 8 shows "✘ off"), e.g. `fib.c 1000000` and `array_sum.c 300000`; the chosen
 version was right in every case.
