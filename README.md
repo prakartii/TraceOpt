@@ -196,6 +196,13 @@ less time and 49–75% less peak memory, and the proof was 4.6–13.6% smaller
 (4 cases with one segment of at most 2^18 cycles; table in
 [results/proving/README.md](results/proving/README.md)).
 
+**The staircase** (`results/proving/staircase-fib.json`, 28 real proofs of
+`demos/fib.c`): proving time stays flat inside a proved size and jumps at
+its edge. TraceOpt's 8x version runs fewer cycles for the same n and lands
+on a lower step.
+
+![Proving time moves in steps](results/proving/staircase-fib-time.svg)
+
 These results cover four small kernels on one machine and one toolchain;
 they show the approach working, not a general speedup.
 
