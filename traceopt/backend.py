@@ -89,6 +89,21 @@ def prove(n: int | list[int], segment_po2: int | None = None,
     return _run_host("prove", n, segment_po2, kernel_elf, extra)
 
 
+def verify(receipt_file: Path, image_id: str) -> dict:
+    """Check a saved receipt against a program's image ID, as a blockchain's
+    verifier would, without running the program.
+
+    Returns the host's report: `valid`, `verify_seconds`, and the answer
+    read from the journal (`result`) when valid, or `error` when not.
+    """
+    proc = subprocess.run([str(HOST), "verify", "kernel", str(receipt_file), image_id],
+                          capture_output=True, text=True)
+    if proc.returncode not in (0, 1) or not proc.stdout.strip():
+        raise subprocess.CalledProcessError(proc.returncode, proc.args, proc.stdout,
+                                            proc.stderr)
+    return json.loads(proc.stdout)
+
+
 def _run_host(mode: str, n: int | list[int], segment_po2: int | None,
               kernel_elf: Path | None, extra: dict[str, str]) -> dict:
     env = dict(os.environ)

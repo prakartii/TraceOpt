@@ -1,5 +1,6 @@
 """traceopt.backend checks that do not need the RISC Zero toolchain."""
 
+import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -73,6 +74,19 @@ class BuildArgumentsTest(unittest.TestCase):
             self.assertNotIn("TRACEOPT_RECEIPT", run.call_args.kwargs["env"])
         with self.assertRaises(ValueError):
             backend.prove(5, receipt="groth16")
+
+    def test_verify_reports_valid_and_invalid_receipts(self):
+        good = mock.Mock(returncode=0, stdout='{"valid": true}', stderr="")
+        bad = mock.Mock(returncode=1, stdout='{"valid": false, "error": "x"}', stderr="")
+        with mock.patch("subprocess.run", return_value=good) as run:
+            self.assertTrue(backend.verify(Path("r.bin"), "ab" * 32)["valid"])
+            self.assertEqual(run.call_args.args[0][1:], ["verify", "kernel", "r.bin", "ab" * 32])
+        with mock.patch("subprocess.run", return_value=bad):
+            self.assertFalse(backend.verify(Path("r.bin"), "ab" * 32)["valid"])
+        crash = mock.Mock(returncode=1, stdout="", stderr="Error: image ID must be ...")
+        with mock.patch("subprocess.run", return_value=crash), \
+                self.assertRaises(subprocess.CalledProcessError):
+            backend.verify(Path("r.bin"), "xyz")
 
     def test_prove_saves_the_receipt_only_when_asked(self):
         result = mock.Mock(stdout='{"stats": {}}')
