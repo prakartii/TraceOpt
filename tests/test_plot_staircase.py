@@ -52,7 +52,7 @@ class SvgTest(unittest.TestCase):
             self.assertTrue(root.tag.endswith("svg"))
             self.assertIn("131,072 → 65,536", text)
             self.assertNotIn("n = 9,000, unrolled 8x", text)
-        self.assertIn("-62% proving time", plot.svg(DATA, "time", 8000))
+        self.assertIn("(-62%)", plot.svg(DATA, "time", 8000))
 
     def test_nothing_proved(self):
         with self.assertRaises(ValueError):

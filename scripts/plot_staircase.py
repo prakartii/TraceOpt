@@ -32,6 +32,8 @@ LEFT, RIGHT, TOP, BOTTOM = 80, 30, 60, 70
 COLORS = {"unroll1": "#d9622b", "unroll2": "#8a5cc2", "unroll4": "#2a9d8f",
           "unroll8": "#2563c9"}
 LEVEL, GRID, TEXT, MUTED = "#9aa0a6", "#e3e5e8", "#1f2328", "#5f6670"
+# A white outline keeps labels readable where they cross dots or lines.
+HALO = 'stroke="#ffffff" stroke-width="4" paint-order="stroke"'
 
 METRICS = {
     "time": {"title": "Proving time", "unit": "s", "value": lambda p: p["median_prove_seconds"],
@@ -114,7 +116,9 @@ def svg(data: dict, metric: str, highlight: int | None) -> str:
         out.append(f'<line x1="{x0:.1f}" x2="{x1:.1f}" y1="{y(lv["y"]):.1f}" '
                    f'y2="{y(lv["y"]):.1f}" stroke="{LEVEL}" stroke-width="3" '
                    f'stroke-linecap="round" opacity="0.55"/>')
-        out.append(f'<text x="{x0:.1f}" y="{y(lv["y"]) - 8:.1f}" fill="{MUTED}">'
+        right = x1 + 140 < WIDTH   # room for the label after the line?
+        out.append(f'<text x="{x1 + 6 if right else x0 - 6:.1f}" y="{y(lv["y"]) + 4:.1f}" '
+                   f'text-anchor="{"start" if right else "end"}" fill="{MUTED}" {HALO}>'
                    f'proved size {fmt(lv["total_cycles"])}</text>')
 
     for p in points:
@@ -141,14 +145,17 @@ def svg(data: dict, metric: str, highlight: int | None) -> str:
             out.append('<defs><marker id="head" viewBox="0 0 10 10" refX="9" refY="5" '
                        'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
                        f'<path d="M0,0 L10,5 L0,10 z" fill="{TEXT}"/></marker></defs>')
-            out.append(f'<path d="M{bx - 8:.1f},{by:.1f} Q{(bx + ox) / 2:.1f},{by:.1f} '
-                       f'{ox + 10:.1f},{oy - 8:.1f}" fill="none" stroke="{TEXT}" '
+            out.append(f'<path d="M{bx:.1f},{by + 9:.1f} Q{bx:.1f},{oy:.1f} '
+                       f'{ox + 12:.1f},{oy:.1f}" fill="none" stroke="{TEXT}" '
                        f'stroke-width="1.5" marker-end="url(#head)"/>')
-            out.append(f'<text x="{(bx + ox) / 2:.1f}" y="{by - 12:.1f}" text-anchor="middle" '
-                       f'font-weight="600" fill="{TEXT}">n = {highlight:,}: TraceOpt\'s '
-                       f'{escape(factor_label(other["version"]))} drops '
-                       f'{fmt(base["total_cycles"])} → {fmt(other["total_cycles"])}, '
-                       f'{change:+.0f}% {escape(m["title"].lower())}</text>')
+            for i, line in enumerate((
+                    f"n = {highlight:,}: TraceOpt's {factor_label(other['version'])}",
+                    f"proved size {fmt(base['total_cycles'])} → {fmt(other['total_cycles'])}",
+                    f"{m['label'](m['value'](base))} → {m['label'](m['value'](other))} "
+                    f"({change:+.0f}%)")):
+                out.append(f'<text x="{bx - 12:.1f}" y="{by + 4 + i * 16:.1f}" '
+                           f'text-anchor="end" font-weight="{600 if i == 2 else 400}" '
+                           f'fill="{TEXT}" {HALO}>{escape(line)}</text>')
 
     lx = LEFT + 12
     for i, version in enumerate(dict.fromkeys(p["version"] for p in points)):
