@@ -72,9 +72,13 @@ padded size in only 1 of the 16 cases.
 
 - Four benchmark kernels and one optimization. The results may not transfer
   to large programs, function calls, or other optimizations.
-- Costs are measured as padded cycles in RISC Zero's executor. Full proofs
-  of the larger runs did not fit in the development machine's memory, so
-  proving time itself is not reported (issue #3).
+- Costs are measured as padded cycles in RISC Zero's executor. Real proofs
+  were generated only for runs with segments of up to 2^18 cycles
+  (`results/proving/`); full proofs of the larger runs did not fit in the
+  development machine's memory (issue #3).
+- The final Groth16 proof has a constant size, so TraceOpt cannot shrink
+  it. It reduces the work to generate the proof, and the per-segment STARK
+  proofs it is built from.
 - Multi-segment runs are predicted less accurately (paging is modeled for
   one segment).
 - No systematic literature survey has been done. Before these points are
