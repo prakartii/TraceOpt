@@ -231,7 +231,8 @@ def render(reports: list[dict], succinct: list[dict], staircase: dict | None,
                 'case is not proved here.</li></ul>'
                 '<h3>Reproduce</h3><pre><code>scripts/prove_compare.sh demos/fib.c 20000 '
                 '--conventional O2 O3\nscripts/prove_staircase.sh demos/fib.c --n 1000 8000 '
-                '18000\npython3 scripts/make_proving_report.py</code></pre></main>')
+                '18000\nscripts/chain_demo.sh demos/fib.c 20000\n'
+                'python3 scripts/make_proving_report.py</code></pre></main>')
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f"<title>TraceOpt Real Proofs</title><style>{CSS}{EXTRA_CSS}</style></head><body>"
