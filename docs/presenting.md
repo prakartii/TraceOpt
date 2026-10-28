@@ -41,6 +41,20 @@ Start `scripts/demo.sh`. It stops after every step; press Enter to go on.
 | Evaluation | 16 cases | "12 cases had nothing to gain, 1 win was taken, 3 were missed, and TraceOpt never made things worse." |
 | Closing | Limits | Read the limits out: small kernels, one optimization, executor cycle counts rather than full proofs, tests rather than proofs of equivalence. |
 
+## The blockchain demo (prover and verifier)
+
+Run `scripts/chain_demo.sh demos/fib.c 20000 --pause` (about 2 minutes;
+`demos/counter.c 1000 3` takes about 30 seconds). Press Enter after each step.
+
+| Step | What to say |
+|---|---|
+| 1 | "Same program as before. TraceOpt picks the 8x version." |
+| 2 | "This is the prover, the expensive side. It proves both versions and saves each proof to a file. The original takes about a minute; TraceOpt's version about 15 seconds." |
+| 3 | "This is what goes to the chain: the proof file, and the image ID, a fingerprint of the program. The answer is inside the proof." |
+| 4 | "This is the chain. It checks each proof in milliseconds, without running the program, and reads the answer out of it. Both answers are correct." |
+| 5 | "The chain cannot be fooled: one changed bit, the wrong program, or an unknown program are all rejected." |
+| 6 | "So proving is where the cost is, and TraceOpt cuts it; the chain's cost stays tiny either way." |
+
 ## The staircase chart
 
 Open `results/proving/proving-report.html` in a browser: it has the
