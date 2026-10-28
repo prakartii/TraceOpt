@@ -433,6 +433,21 @@ verified and its answer checked. Results go to `results/proving/`. Segments
 above 2^18 cycles are refused by default (`--max-po2`), because larger ones
 ran out of memory on the development machine.
 
+### Prover and verifier: the blockchain view (WSL)
+
+```bash
+scripts/chain_demo.sh demos/counter.c 1000 3          # about 30 seconds
+scripts/chain_demo.sh demos/fib.c 20000 --pause       # Enter between the 6 steps
+```
+
+Plays both sides of how a blockchain uses a proof: the prover proves the
+original and TraceOpt's version and saves each receipt to a file; the
+verifier checks each receipt against the program's image ID and reads the
+answer from it without running the program, then rejects three forged
+receipts (one bit changed, the wrong program, an unknown program). The last
+step compares the prover's bill with the verifier's cost. Results go to
+`results/chain/`.
+
 ### The proving-cost staircase (WSL, then any OS)
 
 ```bash
