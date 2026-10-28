@@ -101,16 +101,19 @@ def _results_table(reports: list[dict]) -> str:
         for name, v in r["versions"].items():
             rows.append([
                 f"<code>{escape(title(r))}</code>" if name == "unroll1" else "",
-                escape(label(name, r)), fmt(v["total_cycles"]), str(v["segments"]),
-                f'{v["median_prove_seconds"]:.1f} s',
+                escape(label(name, r)), fmt(v["total_cycles"]),
+                "" if name == "unroll1" else change(base["total_cycles"], v["total_cycles"]),
+                str(v["segments"]), f'{v["median_prove_seconds"]:.1f} s',
                 "" if name == "unroll1" else change(base["median_prove_seconds"],
                                                     v["median_prove_seconds"]),
                 f'{v["peak_memory_kib"] / 1024:,.0f} MiB',
                 f'{fmt(v["seal_bytes"])} B',
                 '<span class="yes">yes</span>' if v["correct"] else '<span class="no">NO</span>'])
-    return _table(["Program", "Version", "Proved size", "Segments", "Proving time",
-                   "Change", "Peak memory", "Proof size", "Correct?"], rows,
-                  numeric={2, 3, 4, 5, 6, 7})
+    # A proving network charges per proved cycle, so the bill changes like the
+    # proved size; the time column is what this laptop measured.
+    return _table(["Program", "Version", "Proved size", "Prover's bill", "Segments",
+                   "Proving time", "Change", "Peak memory", "Proof size", "Correct?"], rows,
+                  numeric={2, 3, 4, 5, 6, 7, 8})
 
 
 def span(values: list[float]) -> str:

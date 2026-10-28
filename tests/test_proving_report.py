@@ -53,6 +53,11 @@ class RenderTest(unittest.TestCase):
         self.assertIn("fixed size", page)
         self.assertIn("<b>10</b>", page)                   # 2 proofs x (3 + 2) versions
 
+    def test_prover_bill_follows_the_proved_size(self):
+        page = proving_report.render([report()], [], None, [])
+        self.assertIn("Prover&#x27;s bill", page.replace("Prover's bill", "Prover&#x27;s bill"))
+        self.assertIn('<td class="num">131,072</td><td class="num">-50%</td>', page)
+
     def test_wrong_answer_is_shown(self):
         r = report()
         r["versions"]["unroll8"]["correct"] = False
