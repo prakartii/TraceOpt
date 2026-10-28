@@ -72,6 +72,7 @@ class RenderTest(unittest.TestCase):
         self.assertIn("The blockchain view", page)
         self.assertIn("3 of 3 forged receipts were rejected", page)
         self.assertIn("18 ms", page)
+        self.assertIn("<b>16–18 ms</b>", page)            # the verify card
         self.assertNotIn("blockchain view", proving_report.render([report()], [], None, []))
 
     def test_wrong_answer_is_shown(self):

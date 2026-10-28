@@ -169,6 +169,11 @@ def render(reports: list[dict], succinct: list[dict], staircase: dict | None,
     if time_cuts:
         cards += [(span(time_cuts), "less proving time where TraceOpt unrolled"),
                   (span(mem_cuts), "less prover memory where TraceOpt unrolled")]
+    verify_ms = [v["verify_seconds"] * 1000 for r in chain for v in r["versions"].values()]
+    if verify_ms:
+        lo, hi = f"{min(verify_ms):.0f}", f"{max(verify_ms):.0f}"
+        cards.append((f"{lo} ms" if lo == hi else f"{lo}–{hi} ms",
+                      "for the verifier (the chain) to check a proof"))
     cards.append(("all" if all(v["correct"] for r in reports + succinct
                                for v in r["versions"].values()) else "NOT all",
                   "answers matched the native program"))
