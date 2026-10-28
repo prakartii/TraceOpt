@@ -56,6 +56,13 @@ the one case where that was available and safe (strided_rw, n = 5:
 262,144 → 131,072 cycles); and Clang's own `-O2` heuristics lowered the
 padded size in only 1 of the 16 cases.
 
+The prover/verifier demo (`scripts/chain_demo.sh`, `results/chain/`) puts
+this in the setting where proofs are used, a blockchain: verifying a saved
+receipt took 13–18 ms whatever the version, while proving took seconds to a
+minute. The saving TraceOpt makes is on the prover's side, which is where
+the cost is. The demo verifies with the RISC Zero library, not in a smart
+contract.
+
 ## What is not new
 
 - **Loop unrolling.** TraceOpt uses LLVM's own `loop-unroll` pass; it only
