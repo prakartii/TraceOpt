@@ -43,13 +43,15 @@ Start `scripts/demo.sh`. It stops after every step; press Enter to go on.
 
 ## The blockchain demo (prover and verifier)
 
-Run `scripts/chain_demo.sh demos/fib.c 20000 --pause` (about 2 minutes;
-`demos/counter.c 1000 3` takes about 30 seconds). Press Enter after each step.
+Run `scripts/chain_demo.sh demos/fib.c 20000 --pause` (about 1 minute of
+proving, measured 53 s end to end; `demos/counter.c 1000 3` takes about 30
+seconds). Press Enter after each step. Close other heavy programs first:
+with the machine low on memory, proving slows down a lot.
 
 | Step | What to say |
 |---|---|
 | 1 | "Same program as before. TraceOpt picks the 8x version." |
-| 2 | "This is the prover, the expensive side. It proves both versions and saves each proof to a file. The original takes about a minute; TraceOpt's version about 15 seconds." |
+| 2 | "This is the prover, the expensive side. It proves both versions and saves each proof to a file. The original takes about four times as long as TraceOpt's version." |
 | 3 | "This is what goes to the chain: the proof file, and the image ID, a fingerprint of the program. The answer is inside the proof." |
 | 4 | "This is the chain. It checks each proof in milliseconds, without running the program, and reads the answer out of it. Both answers are correct." |
 | 5 | "The chain cannot be fooled: one changed bit, the wrong program, or an unknown program are all rejected." |
