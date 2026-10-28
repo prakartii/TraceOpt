@@ -101,7 +101,7 @@ def _results_table(reports: list[dict]) -> str:
         for name, v in r["versions"].items():
             rows.append([
                 f"<code>{escape(title(r))}</code>" if name == "unroll1" else "",
-                escape(label(name, r)), fmt(v["total_cycles"]),
+                f'<span class="nw">{escape(label(name, r))}</span>', fmt(v["total_cycles"]),
                 "" if name == "unroll1" else change(base["total_cycles"], v["total_cycles"]),
                 str(v["segments"]), f'{v["median_prove_seconds"]:.1f} s',
                 "" if name == "unroll1" else change(base["median_prove_seconds"],
