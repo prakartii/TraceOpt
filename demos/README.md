@@ -31,6 +31,11 @@ To generate real proofs instead of only executing, use
 `fib.c`, `array_sum.c` and `counter.c` are in
 [../results/proving/](../results/proving/README.md)).
 
+To show the blockchain view (a prover that saves the proofs, and a verifier
+that checks them without running the program), use
+`scripts/chain_demo.sh demos/counter.c 1000 3` (about 30 seconds) or the
+same with `demos/fib.c 20000`; add `--pause` to stop after each step.
+
 In some runs a version that was not chosen has a wrong predicted size (stage
 8 shows "✘ off"), e.g. `fib.c 1000000` and `array_sum.c 300000`; the chosen
 version was right in every case.
