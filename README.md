@@ -585,7 +585,10 @@ TraceOpt/
 │   ├── design-decisions.md
 │   ├── development-roadmap.md
 │   ├── experiments.md      evaluation results
-│   └── feasibility.md      Phase 0 measurements and blockers
+│   ├── feasibility.md      Phase 0 measurements and blockers
+│   ├── how-to-run.md       every demo, in order
+│   ├── novelty.md          what is new and what is not
+│   └── presenting.md       what to say, and likely questions
 ├── examples/
 │   ├── candidates.json     input for `traceopt decide`
 │   └── kernels/            custom kernels to try in live mode
@@ -598,7 +601,9 @@ TraceOpt/
 │   ├── model-clang21.json          the cost model `traceopt optimize` uses
 │   ├── evaluation-clang21.json     baseline / -O2 / TraceOpt evaluation
 │   ├── demo-run.json               a measured run of the narrated demo
-│   └── demo-report.html            HTML report built from demo-run.json
+│   ├── demo-report.html            HTML report built from demo-run.json
+│   ├── proving/                    real proofs, staircase charts, proving-report.html
+│   └── chain/                      prover and verifier runs (the blockchain view)
 ├── scripts/
 │   ├── build_backend.sh    builds the backend (TRACEOPT_GUEST_ONLY=1: guest only)
 │   ├── check_kernel.sh     runs one benchmark and checks its output
