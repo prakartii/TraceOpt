@@ -164,6 +164,15 @@ Other inputs, one per kind of case (all checked end to end; files are in
   `results/proving/`). Larger segments did not fit in the development
   machine's memory; for those, the padded cycle count the executor reports
   is the measure, and the small runs show proving time and memory follow it.
+- **Where are these proofs used in blockchain?** Mainly zk-rollups: a
+  server runs many transactions off-chain, proves they were run correctly,
+  and posts one small proof that the chain (e.g. Ethereum) checks instead
+  of re-running them. Also private payments and bridges between chains.
+  `scripts/chain_demo.sh` shows the two sides: proving is slow and
+  expensive, verifying takes milliseconds.
+- **Who pays for proving?** Whoever runs the prover (a rollup operator, or a
+  proving network that charges per proved cycle). That is the cost TraceOpt
+  cuts; the chain's verification cost does not change.
 - **Can you optimize the proof itself, not just the cycle count?** The
   final on-chain proof (Groth16) has the same size for every program, so no
   compiler can shrink it. What TraceOpt changes is the work to generate the
