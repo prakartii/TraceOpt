@@ -55,7 +55,7 @@ class RenderTest(unittest.TestCase):
 
     def test_prover_bill_follows_the_proved_size(self):
         page = proving_report.render([report()], [], None, [])
-        self.assertIn("Prover&#x27;s bill", page.replace("Prover's bill", "Prover&#x27;s bill"))
+        self.assertIn("<th class=\"num\">Prover's bill</th>", page)
         self.assertIn('<td class="num">131,072</td><td class="num">-50%</td>', page)
 
     def test_wrong_answer_is_shown(self):
