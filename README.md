@@ -199,6 +199,11 @@ cases, plain `clang -O2` and `-O3` stayed in the original's proved size and
 proved within −4% to +17% of the original's time. All results are on one
 page: `results/proving/proving-report.html`.
 
+**Prover and verifier** (`results/chain/`): verifying a saved receipt took
+13–18 ms, against 4.4–59.9 s to prove it, and the verifier rejected all 6
+forged receipts it was given. TraceOpt cut the prover's time by 46% and 76%
+in the two runs; the verifier's cost stayed the same.
+
 **The staircase** (`results/proving/staircase-fib.json`, 28 real proofs of
 `demos/fib.c`): proving time stays flat inside a proved size and jumps at
 its edge. TraceOpt's 8x version runs fewer cycles for the same n and lands
