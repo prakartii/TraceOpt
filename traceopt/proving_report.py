@@ -116,6 +116,34 @@ def _results_table(reports: list[dict]) -> str:
                   numeric={2, 3, 4, 5, 6, 7, 8})
 
 
+def _chain_section(i: int, chain: list[dict]) -> str:
+    rows = []
+    for r in chain:
+        for name, v in r["versions"].items():
+            rows.append([f"<code>{escape(title(r))}</code>" if name == "unroll1" else "",
+                         escape(label(name, r)), fmt(v["total_cycles"]),
+                         f'{v["prove_seconds"]:.1f} s', f'{v["verify_seconds"] * 1000:.0f} ms',
+                         f'{fmt(v["receipt_file_bytes"])} B',
+                         '<span class="yes">yes</span>' if v["valid"]
+                         and v["answer"] == r["expected"] else '<span class="no">NO</span>'])
+    attacks = [a for r in chain for a in r["attacks"]]
+    rejected = sum(not a["valid"] for a in attacks)
+    return (f'<h2>{i}. The blockchain view: prover and verifier</h2>'
+            '<p>On a blockchain, one party proves the computation and the chain only verifies '
+            'the proof. Here the prover saves each receipt to a file, and a separate '
+            '<code>verify</code> step checks it against the program\'s image ID (a fingerprint '
+            'of its machine code) and reads the answer from it, without running the '
+            'program.</p>'
+            + _table(["Program", "Version", "Proved size", "Proving", "Verifying",
+                      "Receipt file", "Verified answer correct?"], rows, numeric={2, 3, 4, 5})
+            + f'<p><b>{rejected} of {len(attacks)} forged receipts were rejected</b>: one bit '
+            'changed in the proof, the original\'s receipt presented as TraceOpt\'s version, '
+            'and a receipt presented as an unknown program.</p>'
+            '<p class="muted">Verifying here uses the RISC Zero library on the same laptop. '
+            'A chain such as Ethereum verifies a compressed Groth16 proof in a smart '
+            'contract; that step needs Docker and more memory and is not shown.</p>')
+
+
 def span(values: list[float]) -> str:
     """'39%–72%', or '50%' when every value rounds the same."""
     lo, hi = f"{min(values):.0%}", f"{max(values):.0%}"
@@ -123,9 +151,11 @@ def span(values: list[float]) -> str:
 
 
 def render(reports: list[dict], succinct: list[dict], staircase: dict | None,
-           staircase_images: list[str]) -> str:
+           staircase_images: list[str], chain: list[dict] | None = None) -> str:
     """reports: composite-receipt comparisons; succinct: succinct-receipt ones;
-    staircase_images: paths of the staircase SVGs, relative to the page."""
+    staircase_images: paths of the staircase SVGs, relative to the page;
+    chain: scripts/chain_demo.py reports."""
+    chain = chain or []
     chosen = [r for r in reports if r["selected"] != "unroll1"]
     time_cuts = [1 - r["versions"][r["selected"]]["median_prove_seconds"]
                  / r["versions"]["unroll1"]["median_prove_seconds"] for r in chosen]
@@ -173,6 +203,9 @@ def render(reports: list[dict], succinct: list[dict], staircase: dict | None,
     section += 1
     body.append(f'<h2>{section}. All measurements</h2>' + _results_table(reports))
     section += 1
+    if chain:
+        body.append(_chain_section(section, chain))
+        section += 1
     if succinct:
         body.append(f'<h2>{section}. The compressed proof has a fixed size</h2>'
                     '<p>A succinct receipt compresses all segment proofs into one. Its size is '

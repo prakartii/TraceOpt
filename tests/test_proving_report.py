@@ -58,6 +58,22 @@ class RenderTest(unittest.TestCase):
         self.assertIn("<th class=\"num\">Prover's bill</th>", page)
         self.assertIn('<td class="num">131,072</td><td class="num">-50%</td>', page)
 
+    def test_chain_section(self):
+        chain = {"program": "demos/fib.c", "inputs": [20000], "selected": "unroll8",
+                 "expected": 7, "versions": {
+                     "unroll1": {"total_cycles": 262144, "prove_seconds": 59.9,
+                                 "verify_seconds": 0.0177, "receipt_file_bytes": 255994,
+                                 "valid": True, "answer": 7},
+                     "unroll8": {"total_cycles": 65536, "prove_seconds": 14.5,
+                                 "verify_seconds": 0.0162, "receipt_file_bytes": 221242,
+                                 "valid": True, "answer": 7}},
+                 "attacks": [{"valid": False}, {"valid": False}, {"valid": False}]}
+        page = proving_report.render([report()], [], None, [], [chain])
+        self.assertIn("The blockchain view", page)
+        self.assertIn("3 of 3 forged receipts were rejected", page)
+        self.assertIn("18 ms", page)
+        self.assertNotIn("blockchain view", proving_report.render([report()], [], None, []))
+
     def test_wrong_answer_is_shown(self):
         r = report()
         r["versions"]["unroll8"]["correct"] = False
