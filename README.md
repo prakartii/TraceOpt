@@ -554,6 +554,9 @@ python3 scripts/run_baseline.py --out results/baseline-gcc.json
 
 | Document | Contents |
 |---|---|
+| [docs/how-to-run.md](docs/how-to-run.md) | Every demo in order: live mode, blockchain demo, real proofs, staircase, results page, tests |
+| [docs/presenting.md](docs/presenting.md) | What to say during each demo, and answers to likely questions |
+| [docs/novelty.md](docs/novelty.md) | What is new in TraceOpt and what is not |
 | [docs/architecture.md](docs/architecture.md) | Pipeline, modules, cost-model features, predicted vs. measured quantities |
 | [docs/feasibility.md](docs/feasibility.md) | Phase 0 environment, commands, measurements, and blockers |
 | [docs/cost-model.md](docs/cost-model.md) | Calibration procedure, feature-set comparison, fitted model, held-out errors, limits |
