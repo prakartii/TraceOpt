@@ -476,6 +476,10 @@ scripts/check_kernel.sh nested_fnv 1 100
 # (the kernel's inputs as 32-bit words; for traceopt_kernel, just n)
 ~/.cache/traceopt-target/release/host execute kernel 1000
 
+# Prove, save the receipt, then verify it as a chain would (image ID from the prove output)
+TRACEOPT_RECEIPT_OUT=r.bin ~/.cache/traceopt-target/release/host prove kernel 5
+~/.cache/traceopt-target/release/host verify kernel r.bin <image_id>
+
 # Cap the segment size (2^18 cycles)
 TRACEOPT_SEGMENT_PO2=18 ~/.cache/traceopt-target/release/host execute kernel 100000
 ```
