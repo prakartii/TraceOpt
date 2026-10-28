@@ -598,6 +598,8 @@ TraceOpt/
 │   ├── prove_compare.sh / .py  real proofs of the original and the choice
 │   ├── prove_staircase.sh / .py  real proofs of one program at many inputs
 │   ├── plot_staircase.py   draws the staircase as SVG (no plotting library)
+│   ├── chain_demo.sh / .py   prover and verifier, the blockchain view
+│   ├── make_proving_report.py  one HTML page of every real-proof result
 │   ├── evaluate.py         baseline / -O2 / TraceOpt comparison
 │   ├── fit_model.py        fits the cost model, reports held-out error
 │   ├── install_llvm_user.sh  LLVM without sudo
