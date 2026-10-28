@@ -5,7 +5,8 @@
 
 Reads every prove_compare report in results/proving/ (when a program has
 both a plain and a -vs-clang report, the -vs-clang one, which includes the
-same versions and more), the staircase reports and their SVG charts.
+same versions and more), the staircase reports and their SVG charts, and
+the prover/verifier runs in results/chain/.
 Open the output in any browser.
 """
 
@@ -45,13 +46,17 @@ def load_reports(folder: Path) -> tuple[list[dict], list[dict], dict | None, lis
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--folder", type=Path, default=ROOT / "results/proving")
+    parser.add_argument("--chain", type=Path, default=ROOT / "results/chain",
+                        help="scripts/chain_demo.py reports (prover and verifier)")
     args = parser.parse_args()
     reports, succinct, staircase, images = load_reports(args.folder)
     if not reports:
         print(f"no prove_compare reports in {args.folder}", file=sys.stderr)
         return 2
+    chain = [json.loads(p.read_text(encoding="utf-8"))
+             for p in sorted(args.chain.glob("*.json"))]
     out = args.folder / "proving-report.html"
-    out.write_text(render(reports, succinct, staircase, images), encoding="utf-8",
+    out.write_text(render(reports, succinct, staircase, images, chain), encoding="utf-8",
                    newline="\n")
     print(f"wrote {out}")
     return 0
